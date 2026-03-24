@@ -137,47 +137,73 @@ public class DocumentProcessor {
         int totalPages = StaticContainers.getDocument().getNumberOfPages();
         for (int pageNumber = 0; pageNumber < totalPages; pageNumber++) {
             if (shouldProcessPage(pageNumber, pagesToProcess)) {
+                LOGGER.log(Level.INFO, "Extracting raw contents for page {0}", pageNumber + 1);
                 List<IObject> pageContents = ContentFilterProcessor.getFilteredContents(inputPdfName,
                     StaticContainers.getDocument().getArtifacts(pageNumber), pageNumber, config);
+                logPageContents("After content filtering", pageNumber, pageContents);
                 contents.add(pageContents);
             } else {
                 contents.add(new ArrayList<>()); // Empty placeholder for skipped pages
             }
         }
         if (config.isClusterTableMethod()) {
+            LOGGER.log(Level.INFO, "Running clustered table detection");
             new ClusterTableProcessor().processTables(contents);
+            logDocumentContents("After clustered table detection", contents);
         }
         for (int pageNumber = 0; pageNumber < totalPages; pageNumber++) {
             if (!shouldProcessPage(pageNumber, pagesToProcess)) {
                 continue;
             }
+            LOGGER.log(Level.INFO, "Post-processing extracted contents for page {0}", pageNumber + 1);
             List<IObject> pageContents = TableBorderProcessor.processTableBorders(contents.get(pageNumber), pageNumber);
+            logPageContents("After table border processing", pageNumber, pageContents);
             if (config.isDetectStrikethrough()) {
                 StrikethroughProcessor.processStrikethroughs(pageContents);
+                logPageContents("After strikethrough detection", pageNumber, pageContents);
             }
             pageContents = pageContents.stream().filter(x -> !(x instanceof LineChunk)).collect(Collectors.toList());
+            logPageContents("After line chunk filtering", pageNumber, pageContents);
             pageContents = TextLineProcessor.processTextLines(pageContents);
+            logPageContents("After text line processing", pageNumber, pageContents);
+            pageContents = AlignedTextTableProcessor.detectAlignedTextTables(pageContents);
+            logPageContents("After aligned text table detection", pageNumber, pageContents);
             pageContents = SpecialTableProcessor.detectSpecialTables(pageContents);
+            logPageContents("After special table detection", pageNumber, pageContents);
             contents.set(pageNumber, pageContents);
         }
+        LOGGER.log(Level.INFO, "Running header/footer detection");
         HeaderFooterProcessor.processHeadersAndFooters(contents, false);
+        logDocumentContents("After header/footer detection", contents);
+        LOGGER.log(Level.INFO, "Running list detection");
         ListProcessor.processLists(contents, false);
+        logDocumentContents("After list detection", contents);
         for (int pageNumber = 0; pageNumber < totalPages; pageNumber++) {
             if (!shouldProcessPage(pageNumber, pagesToProcess)) {
                 continue;
             }
             List<IObject> pageContents = contents.get(pageNumber);
+            LOGGER.log(Level.INFO, "Building semantic structure for page {0}", pageNumber + 1);
             pageContents = ParagraphProcessor.processParagraphs(pageContents);
+            logPageContents("After paragraph detection", pageNumber, pageContents);
+            pageContents = SectionHeadingProcessor.splitCompoundSectionHeadings(pageContents);
+            logPageContents("After compound heading split", pageNumber, pageContents);
             pageContents = ListProcessor.processListsFromTextNodes(pageContents);
+            logPageContents("After text-node list detection", pageNumber, pageContents);
             HeadingProcessor.processHeadings(pageContents, false);
+            logPageContents("After heading detection", pageNumber, pageContents);
             setIDs(pageContents);
+            logPageContents("After assigning IDs", pageNumber, pageContents);
             CaptionProcessor.processCaptions(pageContents);
+            logPageContents("After caption detection", pageNumber, pageContents);
             contents.set(pageNumber, pageContents);
         }
+        LOGGER.log(Level.INFO, "Reconciling cross-page semantic structures");
         ListProcessor.checkNeighborLists(contents);
         TableBorderProcessor.checkNeighborTables(contents);
         HeadingProcessor.detectHeadingsLevels();
         LevelProcessor.detectLevels(contents);
+        logDocumentContents("After semantic reconciliation", contents);
         return contents;
     }
 
@@ -190,6 +216,90 @@ public class DocumentProcessor {
      */
     private static boolean shouldProcessPage(int pageNumber, Set<Integer> pagesToProcess) {
         return pagesToProcess == null || pagesToProcess.contains(pageNumber);
+    }
+
+    private static void logPageContents(String stage, int pageNumber, List<IObject> pageContents) {
+        LOGGER.log(Level.INFO, "{0} on page {1}: {2} objects",
+            new Object[]{stage, pageNumber + 1, pageContents.size()});
+        if (!pageContents.isEmpty()) {
+            LOGGER.log(Level.INFO, "{0} on page {1} types: {2}",
+                new Object[]{stage, pageNumber + 1, summarizeTypes(pageContents)});
+            LOGGER.log(Level.INFO, "{0} on page {1} samples: {2}",
+                new Object[]{stage, pageNumber + 1, summarizeSamples(pageContents)});
+        }
+    }
+
+    private static void logDocumentContents(String stage, List<List<IObject>> contents) {
+        int totalObjects = contents.stream().mapToInt(List::size).sum();
+        LOGGER.log(Level.INFO, "{0}: {1} pages, {2} objects",
+            new Object[]{stage, contents.size(), totalObjects});
+        if (totalObjects > 0) {
+            List<IObject> flattenedContents = contents.stream()
+                .flatMap(List::stream)
+                .collect(Collectors.toList());
+            LOGGER.log(Level.INFO, "{0} types: {1}",
+                new Object[]{stage, summarizeTypes(flattenedContents)});
+            LOGGER.log(Level.INFO, "{0} samples: {1}",
+                new Object[]{stage, summarizeSamples(flattenedContents)});
+        }
+    }
+
+    private static String summarizeTypes(List<IObject> contents) {
+        return contents.stream()
+            .collect(Collectors.groupingBy(DocumentProcessor::getObjectTypeName, LinkedHashMap::new, Collectors.counting()))
+            .entrySet()
+            .stream()
+            .sorted((left, right) -> Long.compare(right.getValue(), left.getValue()))
+            .limit(8)
+            .map(entry -> entry.getKey() + "=" + entry.getValue())
+            .collect(Collectors.joining(", "));
+    }
+
+    private static String summarizeSamples(List<IObject> contents) {
+        return contents.stream()
+            .limit(5)
+            .map(DocumentProcessor::describeObject)
+            .collect(Collectors.joining(" | "));
+    }
+
+    private static String describeObject(IObject object) {
+        String typeName = getObjectTypeName(object);
+        StringBuilder description = new StringBuilder(typeName);
+        if (object.getRecognizedStructureId() != null) {
+            description.append("#").append(object.getRecognizedStructureId());
+        }
+        if (object.getBoundingBox() != null) {
+            BoundingBox boundingBox = object.getBoundingBox();
+            description.append("@p").append(boundingBox.getPageNumber() + 1)
+                .append("[")
+                .append(formatCoordinate(boundingBox.getLeftX())).append(",")
+                .append(formatCoordinate(boundingBox.getTopY())).append(" -> ")
+                .append(formatCoordinate(boundingBox.getRightX())).append(",")
+                .append(formatCoordinate(boundingBox.getBottomY())).append("]");
+        }
+        if (object instanceof SemanticTextNode) {
+            String value = ((SemanticTextNode) object).getValue();
+            if (value != null && !value.isEmpty()) {
+                description.append(" \"").append(abbreviate(value)).append("\"");
+            }
+        }
+        return description.toString();
+    }
+
+    private static String getObjectTypeName(IObject object) {
+        return object.getClass().getSimpleName();
+    }
+
+    private static String abbreviate(String value) {
+        String normalized = value.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= 80) {
+            return normalized;
+        }
+        return normalized.substring(0, 77) + "...";
+    }
+
+    private static String formatCoordinate(Double value) {
+        return value == null ? "null" : String.format(Locale.ROOT, "%.1f", value);
     }
 
     private static void generateOutputs(String inputPdfName, List<List<IObject>> contents, Config config) throws IOException {
@@ -213,7 +323,10 @@ public class DocumentProcessor {
             pdfWriter.updatePDF(inputPDF, config.getPassword(), config.getOutputFolder(), contents);
         }
         if (config.isGenerateJSON()) {
+            String jsonOutputPath = getOutputFilePath(inputPDF, config.getOutputFolder(), "json");
+            LOGGER.log(Level.INFO, "Starting JSON output generation: {0}", jsonOutputPath);
             JsonWriter.writeToJson(inputPDF, config.getOutputFolder(), contents);
+            LOGGER.log(Level.INFO, "Finished JSON output generation: {0}", jsonOutputPath);
         }
         if (config.isGenerateMarkdown()) {
             try (MarkdownGenerator markdownGenerator = MarkdownGeneratorFactory.getMarkdownGenerator(inputPDF,
@@ -231,6 +344,11 @@ public class DocumentProcessor {
                 textGenerator.writeToText(contents);
             }
         }
+    }
+
+    private static String getOutputFilePath(File inputPDF, String outputFolder, String extension) {
+        String baseName = inputPDF.getName().substring(0, inputPDF.getName().length() - 4);
+        return outputFolder + File.separator + baseName + "." + extension;
     }
 
     /**
@@ -435,12 +553,15 @@ public class DocumentProcessor {
      */
     public static void sortContents(List<List<IObject>> contents, Config config) {
         String readingOrder = config.getReadingOrder();
+        LOGGER.log(Level.INFO, "Applying reading order: {0}", readingOrder);
+        logDocumentOrder("Before reading-order sort", contents);
 
         // xycut: XY-Cut++ sorting
         if (Config.READING_ORDER_XYCUT.equals(readingOrder)) {
             for (int pageNumber = 0; pageNumber < StaticContainers.getDocument().getNumberOfPages(); pageNumber++) {
                 contents.set(pageNumber, XYCutPlusPlusSorter.sort(contents.get(pageNumber)));
             }
+            logDocumentOrder("After reading-order sort", contents);
             return;
         }
 
@@ -450,5 +571,17 @@ public class DocumentProcessor {
         }
 
         // off: skip sorting (keep PDF COS object order)
+        logDocumentOrder("Reading-order sort skipped", contents);
+    }
+
+    private static void logDocumentOrder(String stage, List<List<IObject>> contents) {
+        for (int pageNumber = 0; pageNumber < contents.size(); pageNumber++) {
+            List<IObject> pageContents = contents.get(pageNumber);
+            if (pageContents.isEmpty()) {
+                continue;
+            }
+            LOGGER.log(Level.INFO, "{0} on page {1}: {2}",
+                new Object[]{stage, pageNumber + 1, summarizeSamples(pageContents)});
+        }
     }
 }

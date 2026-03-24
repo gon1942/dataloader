@@ -10,7 +10,9 @@ const sourceJarGlob = path
 
 console.log(`Searching for JAR file in: ${sourceJarGlob}`);
 
-const sourceJarPaths = globSync(sourceJarGlob);
+const sourceJarPaths = globSync(sourceJarGlob).filter(
+  (jarPath) => !path.basename(jarPath).startsWith('original-'),
+);
 if (sourceJarPaths.length === 0) {
   console.error(
     "Could not find the JAR file. Please run 'mvn package' in the 'java/' directory first.",

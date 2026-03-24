@@ -20,7 +20,12 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 echo "Checking prerequisites..."
 
 command -v java >/dev/null || { echo "Error: java not found"; exit 1; }
-command -v mvn >/dev/null || { echo "Error: mvn not found"; exit 1; }
+# Maven: check for mvnw (Maven Wrapper) or system mvn
+if [ -f "$ROOT_DIR/java/mvnw" ]; then
+    echo "Maven: using Maven Wrapper (mvnw)"
+else
+    command -v mvn >/dev/null || { echo "Error: mvn not found. Install Maven or add mvnw to java/"; exit 1; }
+fi
 command -v uv >/dev/null || { echo "Error: uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"; exit 1; }
 command -v node >/dev/null || { echo "Error: node not found"; exit 1; }
 command -v pnpm >/dev/null || { echo "Error: pnpm not found"; exit 1; }
@@ -40,7 +45,11 @@ echo "[1/3] Java: Building and testing..."
 echo "----------------------------------------"
 
 cd "$ROOT_DIR/java"
-mvn versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
+if [ -f "mvnw" ]; then
+    ./mvnw versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
+else
+    mvn versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
+fi
 "$SCRIPT_DIR/build-java.sh"
 
 echo "[1/3] Java: Done"

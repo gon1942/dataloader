@@ -16,7 +16,11 @@
 package org.opendataloader.pdf.processors.readingorder;
 
 import org.verapdf.wcag.algorithms.entities.IObject;
+import org.verapdf.wcag.algorithms.entities.SemanticTextNode;
+import org.verapdf.wcag.algorithms.entities.content.TextLine;
 import org.verapdf.wcag.algorithms.entities.geometry.BoundingBox;
+import org.verapdf.wcag.algorithms.entities.lists.ListItem;
+import org.verapdf.wcag.algorithms.entities.lists.PDFList;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -45,9 +49,10 @@ import java.util.List;
 public class XYCutPlusPlusSorter {
 
     /** Default beta multiplier for cross-layout detection threshold.
-     *  Higher value = fewer elements detected as cross-layout.
-     *  2.0 means element must be 2x wider than maxWidth to be considered cross-layout (effectively disabled). */
-    static final double DEFAULT_BETA = 2.0;
+     *  Lower value = more full-width elements treated as cross-layout.
+     *  0.7 means an element at least 70% as wide as the page's widest element
+     *  can be treated as a cross-layout header/summary block. */
+    static final double DEFAULT_BETA = 0.7;
 
     /** Default density threshold for adaptive axis selection. */
     static final double DEFAULT_DENSITY_THRESHOLD = 0.9;
@@ -133,11 +138,12 @@ public class XYCutPlusPlusSorter {
     /**
      * Identify cross-layout elements that span multiple regions.
      * An element is cross-layout if:
-     * 1. Its width exceeds beta * maxWidth (where maxWidth is the widest element)
+     * 1. Its width exceeds beta * regionWidth (where regionWidth spans all elements)
      * 2. It horizontally overlaps with at least MIN_OVERLAP_COUNT other elements
      *
-     * Using maxWidth instead of median ensures only truly wide elements
-     * (like titles spanning the full page) are detected as cross-layout.
+     * Using region width ensures only elements that span a substantial fraction
+     * of the full layout width (like titles or summary tables) are detected
+     * as cross-layout, while ordinary wide column blocks are not.
      *
      * @param objects List of objects to analyze
      * @param beta    Threshold multiplier for width comparison (e.g., 0.7 = 70% of max width)
@@ -151,19 +157,14 @@ public class XYCutPlusPlusSorter {
             return crossLayoutElements;
         }
 
-        // Calculate max width among all objects
-        double maxWidth = 0;
-        for (IObject obj : objects) {
-            BoundingBox bbox = obj.getBoundingBox();
-            if (bbox != null) {
-                double width = bbox.getWidth();
-                maxWidth = Math.max(maxWidth, width);
-            }
+        BoundingBox regionBounds = calculateBoundingRegion(objects);
+        if (regionBounds == null) {
+            return crossLayoutElements;
         }
+        double regionWidth = regionBounds.getWidth();
 
-        // Threshold: element must be at least beta * maxWidth to be cross-layout
-        // With beta=0.7, element must be at least 70% as wide as the widest element
-        double threshold = beta * maxWidth;
+        // Threshold: element must be at least beta * regionWidth to be cross-layout
+        double threshold = beta * regionWidth;
 
         for (IObject obj : objects) {
             BoundingBox bbox = obj.getBoundingBox();
@@ -449,16 +450,17 @@ public class XYCutPlusPlusSorter {
      */
     private static CutInfo findVerticalCutByEdges(List<IObject> objects) {
         List<IObject> sorted = new ArrayList<>(objects);
-        sorted.sort(Comparator.comparingDouble((IObject o) -> o.getBoundingBox().getLeftX())
-                .thenComparingDouble(o -> o.getBoundingBox().getRightX()));
+        sorted.sort(Comparator.comparingDouble((IObject o) -> getReadingOrderBox(o).getLeftX())
+                .thenComparingDouble(o -> getReadingOrderBox(o).getRightX()));
 
         double largestGap = 0;
         double cutPosition = 0;
         Double prevRight = null;
 
         for (IObject obj : sorted) {
-            double left = obj.getLeftX();
-            double right = obj.getRightX();
+            BoundingBox readingOrderBox = getReadingOrderBox(obj);
+            double left = readingOrderBox.getLeftX();
+            double right = readingOrderBox.getRightX();
 
             if (prevRight != null && left > prevRight) {
                 double gap = left - prevRight;
@@ -488,16 +490,17 @@ public class XYCutPlusPlusSorter {
 
         // Sort by topY descending (PDF: top to bottom)
         List<IObject> sorted = new ArrayList<>(objects);
-        sorted.sort(Comparator.comparingDouble((IObject o) -> -o.getBoundingBox().getTopY())
-                .thenComparingDouble(o -> -o.getBoundingBox().getBottomY()));
+        sorted.sort(Comparator.comparingDouble((IObject o) -> -getReadingOrderBox(o).getTopY())
+                .thenComparingDouble(o -> -getReadingOrderBox(o).getBottomY()));
 
         double largestGap = 0;
         double cutPosition = 0;
         Double prevBottom = null;
 
         for (IObject obj : sorted) {
-            double top = obj.getTopY();
-            double bottom = obj.getBottomY();
+            BoundingBox readingOrderBox = getReadingOrderBox(obj);
+            double top = readingOrderBox.getTopY();
+            double bottom = readingOrderBox.getBottomY();
 
             if (prevBottom != null && prevBottom > top) {
                 double gap = prevBottom - top;
@@ -527,7 +530,7 @@ public class XYCutPlusPlusSorter {
 
         for (IObject obj : objects) {
             // Use center Y to determine which group
-            double centerY = obj.getCenterY();
+            double centerY = getReadingOrderCenterY(obj);
             if (centerY > cutY) {
                 above.add(obj);
             } else {
@@ -559,7 +562,7 @@ public class XYCutPlusPlusSorter {
 
         for (IObject obj : objects) {
             // Use center X to determine which group
-            double centerX = obj.getCenterX();
+            double centerX = getReadingOrderCenterX(obj);
             if (centerX < cutX) {
                 left.add(obj);
             } else {
@@ -615,8 +618,8 @@ public class XYCutPlusPlusSorter {
                 IObject mainObj = sortedMain.get(mainIndex);
                 IObject crossObj = sortedCrossLayout.get(crossIndex);
 
-                double mainTopY = mainObj.getTopY();
-                double crossTopY = crossObj.getTopY();
+                double mainTopY = getReadingOrderBox(mainObj).getTopY();
+                double crossTopY = getReadingOrderBox(crossObj).getTopY();
 
                 if (crossTopY >= mainTopY) {
                     // Cross-layout element is above or at same level, add it first
@@ -644,8 +647,37 @@ public class XYCutPlusPlusSorter {
     static List<IObject> sortByYThenX(List<IObject> objects) {
         List<IObject> sorted = new ArrayList<>(objects);
         sorted.sort(Comparator
-                .comparingDouble((IObject o) -> -o.getBoundingBox().getTopY())  // Higher Y first (top)
-                .thenComparingDouble(o -> o.getBoundingBox().getLeftX()));      // Lower X first (left)
+                .comparingDouble((IObject o) -> -getReadingOrderBox(o).getTopY())  // Higher Y first (top)
+                .thenComparingDouble(o -> getReadingOrderBox(o).getLeftX()));      // Lower X first (left)
         return sorted;
+    }
+
+    private static BoundingBox getReadingOrderBox(IObject object) {
+        if (object instanceof SemanticTextNode) {
+            TextLine firstLine = ((SemanticTextNode) object).getFirstLine();
+            if (firstLine != null && firstLine.getBoundingBox() != null) {
+                return firstLine.getBoundingBox();
+            }
+        }
+        if (object instanceof PDFList) {
+            ListItem firstListItem = ((PDFList) object).getFirstListItem();
+            if (firstListItem != null) {
+                TextLine firstLine = firstListItem.getFirstLine();
+                if (firstLine != null && firstLine.getBoundingBox() != null) {
+                    return firstLine.getBoundingBox();
+                }
+            }
+        }
+        return object.getBoundingBox();
+    }
+
+    private static double getReadingOrderCenterX(IObject object) {
+        BoundingBox readingOrderBox = getReadingOrderBox(object);
+        return (readingOrderBox.getLeftX() + readingOrderBox.getRightX()) / 2.0;
+    }
+
+    private static double getReadingOrderCenterY(IObject object) {
+        BoundingBox readingOrderBox = getReadingOrderBox(object);
+        return (readingOrderBox.getTopY() + readingOrderBox.getBottomY()) / 2.0;
     }
 }

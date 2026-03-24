@@ -18,10 +18,21 @@ class CustomBuildHook(BuildHookInterface):
         third_party_dest = pkg_dir / "THIRD_PARTY"
 
         readme_path = root_dir / "README.md"
+        source_jar_glob = str(
+            root_dir / "../../java/opendataloader-pdf-cli/target/opendataloader-pdf-cli-*.jar"
+        )
+        resolved_glob_path = Path(source_jar_glob).resolve()
+        source_jar_paths = [
+            path
+            for path in glob.glob(source_jar_glob)
+            if not Path(path).name.startswith("original-")
+        ]
 
-        # Check if all required files already exist (building from sdist)
+        # When building from the workspace, always refresh bundled artifacts from the
+        # latest Java build. Only fall back to existing files for sdist builds.
         if (
-            dest_jar_path.exists()
+            not source_jar_paths
+            and dest_jar_path.exists()
             and license_path.exists()
             and notice_path.exists()
             and third_party_dest.exists()
@@ -32,13 +43,8 @@ class CustomBuildHook(BuildHookInterface):
 
         # --- Copy JAR ---
         print(f"Root DIR: {root_dir}")
-        source_jar_glob = str(
-            root_dir / "../../java/opendataloader-pdf-cli/target/opendataloader-pdf-cli-*.jar"
-        )
-        resolved_glob_path = Path(source_jar_glob).resolve()
         print(f"Searching for JAR file in: {resolved_glob_path}")
 
-        source_jar_paths = glob.glob(source_jar_glob)
         if not source_jar_paths:
             raise RuntimeError(
                 f"Could not find the JAR file. Please run 'mvn package' in the 'java/' directory first. Searched in: {resolved_glob_path}"

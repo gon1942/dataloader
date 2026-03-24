@@ -95,10 +95,15 @@ public class CLIMain {
     }
 
     private static void configureLogging(boolean quiet) {
+        Logger rootLogger = Logger.getLogger("");
         if (!quiet) {
+            rootLogger.setLevel(Level.INFO);
+            for (Handler handler : rootLogger.getHandlers()) {
+                handler.setLevel(Level.INFO);
+            }
+            LOGGER.setLevel(Level.INFO);
             return;
         }
-        Logger rootLogger = Logger.getLogger("");
         rootLogger.setLevel(Level.OFF);
         for (Handler handler : rootLogger.getHandlers()) {
             handler.setLevel(Level.OFF);

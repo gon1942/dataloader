@@ -21,6 +21,8 @@ import org.verapdf.wcag.algorithms.entities.IObject;
 import org.verapdf.wcag.algorithms.entities.content.TextChunk;
 import org.verapdf.wcag.algorithms.entities.content.TextLine;
 import org.verapdf.wcag.algorithms.entities.geometry.BoundingBox;
+import org.verapdf.wcag.algorithms.entities.lists.ListItem;
+import org.verapdf.wcag.algorithms.entities.lists.PDFList;
 import org.verapdf.wcag.algorithms.semanticalgorithms.containers.StaticContainers;
 
 import java.time.Duration;
@@ -576,6 +578,32 @@ class XYCutPlusPlusSorterTest {
         assertTrue(r1 < r2, "R1 before R2");
     }
 
+    @Test
+    void sort_usesReadingAnchorForAggregateObjects() {
+        List<IObject> objects = new ArrayList<>();
+        objects.add(createTextLine(300, 2100, 650, 2070, "Heading"));
+        objects.add(createTextLine(50, 1750, 950, 1700, "SummaryTable"));
+
+        PDFList list = new PDFList();
+        ListItem item = new ListItem(new BoundingBox(), 1L);
+        item.add(new TextLine(new TextChunk(new BoundingBox(0, 60.0, 1600.0, 600.0, 1650.0),
+            "BodyList", 10, 540.0)));
+        list.add(item);
+        // Simulate an aggregate bbox that extends above the actual reading anchor.
+        list.setBoundingBox(new BoundingBox(0, 58.0, 400.0, 610.0, 1760.0));
+        objects.add(list);
+
+        objects.add(createTextLine(50, 350, 500, 300, "BottomTable"));
+
+        List<IObject> result = XYCutPlusPlusSorter.sort(objects);
+
+        assertEquals(4, result.size());
+        assertEquals("Heading", getText(result.get(0)));
+        assertEquals("SummaryTable", getText(result.get(1)));
+        assertEquals("BodyList", getText(result.get(2)));
+        assertEquals("BottomTable", getText(result.get(3)));
+    }
+
     // ========== 1901.03003.pdf READING ORDER TEST ==========
 
     /**
@@ -722,6 +750,12 @@ class XYCutPlusPlusSorterTest {
             TextLine textLine = (TextLine) obj;
             if (!textLine.getTextChunks().isEmpty()) {
                 return textLine.getTextChunks().get(0).getValue();
+            }
+        }
+        if (obj instanceof PDFList) {
+            PDFList list = (PDFList) obj;
+            if (list.getFirstListItem() != null && list.getFirstListItem().getFirstLine() != null) {
+                return list.getFirstListItem().getFirstLine().getValue();
             }
         }
         return "";

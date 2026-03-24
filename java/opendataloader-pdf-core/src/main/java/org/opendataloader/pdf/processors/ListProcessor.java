@@ -29,6 +29,7 @@ import org.verapdf.wcag.algorithms.entities.lists.PDFList;
 import org.verapdf.wcag.algorithms.entities.lists.TextListInterval;
 import org.verapdf.wcag.algorithms.entities.lists.info.ListItemInfo;
 import org.verapdf.wcag.algorithms.entities.lists.info.ListItemTextInfo;
+import org.verapdf.wcag.algorithms.entities.tables.tableBorders.TableBorder;
 import org.verapdf.wcag.algorithms.semanticalgorithms.utils.ChunksMergeUtils;
 import org.verapdf.wcag.algorithms.semanticalgorithms.utils.ListLabelsUtils;
 import org.verapdf.wcag.algorithms.semanticalgorithms.utils.ListUtils;
@@ -48,7 +49,10 @@ public class ListProcessor {
     private static final double LIST_ITEM_PROBABILITY = 0.7;
     private static final double LIST_ITEM_BASELINE_DIFFERENCE = 1.2;
     private static final double LIST_ITEM_X_INTERVAL_RATIO = 0.3;
+    private static final int MAX_OUTLINE_HEADING_LENGTH = 120;
     private static final Pattern ATTACHMENTS_PATTERN = Pattern.compile("^붙\\s*임\\s*(?=.)");
+    private static final Pattern ARABIC_HEADING_PATTERN = Pattern.compile("^\\d+[\\.)]?\\s+\\S.*");
+    private static final Pattern ARABIC_HEADING_MARKER_PATTERN = Pattern.compile("(^|\\s)\\d+[\\.)]?\\s+\\S");
 
     public static void processLists(List<List<IObject>> contents, boolean isTableCell) {
         List<TextListInterval> intervalsList = getTextLabelListIntervals(contents);
@@ -70,6 +74,12 @@ public class ListProcessor {
             for (int i = 0; i < interval.getNumberOfListItems(); i++) {
                 ListItemInfo currentInfo = interval.getListItemsInfos().get(i);
                 if (!Objects.equals(currentInfo.getPageNumber(), currentPageNumber)) {
+                    if (isSectionHeadingSequence(interval, index, i - 1, contents.get(isTableCell ? 0 : currentPageNumber))) {
+                        currentPageNumber = currentInfo.getPageNumber();
+                        index = i;
+                        previousList = null;
+                        continue;
+                    }
                     PDFList list = calculateList(interval, index, i - 1, contents.get(isTableCell ? 0 : currentPageNumber));
                     for (ListItem listItem : list.getListItems()) {
                         listItem.setContents(processListItemContent(listItem.getContents()));
@@ -81,6 +91,10 @@ public class ListProcessor {
                     index = i;
                     previousList = list;
                 }
+            }
+            if (isSectionHeadingSequence(interval, index, interval.getNumberOfListItems() - 1,
+                contents.get(isTableCell ? 0 : currentPageNumber))) {
+                continue;
             }
             PDFList list = calculateList(interval, index, interval.getNumberOfListItems() - 1, contents.get(isTableCell ? 0 : currentPageNumber));
             for (ListItem listItem : list.getListItems()) {
@@ -362,12 +376,164 @@ public class ListProcessor {
             if (!isCorrectList(textListInterval)) {
                 continue;
             }
+            if (isSectionHeadingSequence(textListInterval, contents)) {
+                continue;
+            }
             PDFList list = calculateList(textListInterval, 0, interval.getNumberOfListItems() - 1, contents);
             for (ListItem listItem : list.getListItems()) {
                 processTextNodeListItemContent(listItem.getContents());
             }
         }
         return DocumentProcessor.removeNullObjectsFromList(contents);
+    }
+
+    private static boolean isSectionHeadingSequence(TextListInterval interval, List<IObject> contents) {
+        if (interval.getNumberOfListItems() < 2) {
+            return false;
+        }
+
+        int headingCandidates = 0;
+        int topLevelBlockFollowers = 0;
+        for (int itemNumber = 0; itemNumber < interval.getNumberOfListItems(); itemNumber++) {
+            ListItemInfo itemInfo = interval.getListItemsInfos().get(itemNumber);
+            IObject object = contents.get(itemInfo.getIndex());
+            if (!(object instanceof SemanticTextNode)) {
+                return false;
+            }
+
+            SemanticTextNode textNode = (SemanticTextNode) object;
+            String value = normalizeText(textNode.getValue());
+            if (!isSingleLineHeadingCandidate(textNode, value)) {
+                return false;
+            }
+            headingCandidates++;
+
+            int nextIndex = itemNumber + 1 < interval.getNumberOfListItems()
+                ? interval.getListItemsInfos().get(itemNumber + 1).getIndex()
+                : contents.size();
+            if (hasTopLevelSectionContentBetween(contents, itemInfo.getIndex() + 1, nextIndex, textNode)) {
+                topLevelBlockFollowers++;
+            }
+        }
+
+        return isLikelySectionHeadingSequence(contents, interval.getNumberOfListItems(), headingCandidates, topLevelBlockFollowers) ||
+            headingCandidates == interval.getNumberOfListItems() &&
+            topLevelBlockFollowers >= Math.max(1, interval.getNumberOfListItems() - 2);
+    }
+
+    private static boolean isSectionHeadingSequence(TextListInterval interval, int startItemIndex, int endItemIndex,
+                                                    List<IObject> contents) {
+        if (endItemIndex - startItemIndex < 1) {
+            return false;
+        }
+
+        int headingCandidates = 0;
+        int topLevelBlockFollowers = 0;
+        for (int itemNumber = startItemIndex; itemNumber <= endItemIndex; itemNumber++) {
+            ListItemInfo itemInfo = interval.getListItemsInfos().get(itemNumber);
+            IObject object = contents.get(itemInfo.getIndex());
+            if (!(object instanceof TextLine)) {
+                return false;
+            }
+
+            TextLine textLine = (TextLine) object;
+            String value = normalizeText(textLine.getValue());
+            if (!isSingleLineHeadingCandidate(value)) {
+                return false;
+            }
+            headingCandidates++;
+
+            int nextIndex = itemNumber < endItemIndex
+                ? interval.getListItemsInfos().get(itemNumber + 1).getIndex()
+                : contents.size();
+            if (hasTopLevelSectionContentBetween(contents, itemInfo.getIndex() + 1, nextIndex, textLine.getLeftX(),
+                textLine.getFontSize())) {
+                topLevelBlockFollowers++;
+            }
+        }
+
+        int itemCount = endItemIndex - startItemIndex + 1;
+        return isLikelySectionHeadingSequence(contents, itemCount, headingCandidates, topLevelBlockFollowers) ||
+            headingCandidates == itemCount &&
+            topLevelBlockFollowers >= Math.max(1, itemCount - 2);
+    }
+
+    private static boolean isLikelySectionHeadingSequence(List<IObject> contents, int itemCount, int headingCandidates,
+                                                          int topLevelBlockFollowers) {
+        if (headingCandidates != itemCount || itemCount < 3) {
+            return false;
+        }
+        int sectionBlockCount = countTopLevelSectionBlocks(contents);
+        if (sectionBlockCount < Math.max(2, itemCount / 2)) {
+            return false;
+        }
+        return topLevelBlockFollowers >= 1;
+    }
+
+    private static int countTopLevelSectionBlocks(List<IObject> contents) {
+        int count = 0;
+        for (IObject content : contents) {
+            if (content instanceof TableBorder || content instanceof ImageChunk) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static boolean isSingleLineHeadingCandidate(SemanticTextNode textNode, String value) {
+        return textNode.getNonSpaceLine(1) == null && isSingleLineHeadingCandidate(value);
+    }
+
+    private static boolean isSingleLineHeadingCandidate(String value) {
+        if (isCompoundHeadingCandidate(value)) {
+            return true;
+        }
+        return value.length() <= MAX_OUTLINE_HEADING_LENGTH &&
+            ARABIC_HEADING_PATTERN.matcher(value).matches();
+    }
+
+    private static boolean isCompoundHeadingCandidate(String value) {
+        if (value.length() > MAX_OUTLINE_HEADING_LENGTH) {
+            return false;
+        }
+        Matcher matcher = ARABIC_HEADING_MARKER_PATTERN.matcher(value);
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+            if (count >= 2) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasTopLevelSectionContentBetween(List<IObject> contents, int startIndex, int endIndex,
+                                                            SemanticTextNode headingNode) {
+        return hasTopLevelSectionContentBetween(contents, startIndex, endIndex, headingNode.getLeftX(),
+            headingNode.getFontSize());
+    }
+
+    private static boolean hasTopLevelSectionContentBetween(List<IObject> contents, int startIndex, int endIndex,
+                                                            double headingLeftX, double fontSize) {
+        double maxXGap = getMaxXGap(fontSize);
+        for (int index = startIndex; index < endIndex; index++) {
+            IObject content = contents.get(index);
+            if (content == null || content instanceof LineChunk || content instanceof LineArtChunk) {
+                continue;
+            }
+            if (content instanceof SemanticTextNode) {
+                continue;
+            }
+            Double leftX = content.getLeftX();
+            if (leftX == null || leftX <= headingLeftX + maxXGap) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String normalizeText(String value) {
+        return value == null ? "" : value.replaceAll("\\s+", " ").trim();
     }
 
     private static List<ListItemTextInfo> calculateTextChildrenInfo(List<SemanticTextNode> textNodes) {
