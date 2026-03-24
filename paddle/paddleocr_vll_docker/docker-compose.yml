@@ -1,0 +1,51 @@
+services:
+  vlm_server:
+    image: ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddleocr-genai-vllm-server:latest-nvidia-gpu
+    container_name: paddleocr_vl15_vllm
+    network_mode: host
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      # 모델 다운로드 hoster 체크를 건너뛰고 싶으면 True로 (환경에 따라 권장)
+      - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+    command: >
+      paddleocr genai_server
+      --model_name PaddleOCR-VL-1.5-0.9B
+      --host 0.0.0.0
+      --port 8080
+      --backend vllm
+    shm_size: "8gb"
+
+  client:
+    build:
+      context: ./client
+    container_name: paddleocr_vl15_client
+    network_mode: host
+    depends_on:
+      - vlm_server
+    volumes:
+      - ./data:/data
+    environment:
+      - VLLM_SERVER_URL=http://127.0.0.1:8080/v1
+      - PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+    command: >
+      python /app/ocr_pdf.py
+      --input /data/input.pdf
+      --out_dir /data/out
+      --server_url http://127.0.0.1:8080/v1
+
+  odl_adapter:
+    build:
+      context: ../adapter
+    container_name: odl_paddle_adapter
+    network_mode: host
+    depends_on:
+      - vlm_server
+    environment:
+      - PADDLE_BASE_URL=http://127.0.0.1:8080
+      - PADDLE_HEALTH_PATH=/v1/models
+      - PADDLE_CONVERT_PATH=/v1/chat/completions
+      - REQUEST_TIMEOUT_SECONDS=120
+      - LOG_LEVEL=INFO
+    command: >
+      uvicorn app:app --host 0.0.0.0 --port 8090
