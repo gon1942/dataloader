@@ -187,6 +187,7 @@ public interface HybridClient {
         private final JsonNode json;
         private final Map<Integer, JsonNode> pageContents;
         private final List<Integer> failedPages;
+        private final JsonNode rawPayload;
 
         /**
          * Creates a new HybridResponse.
@@ -198,7 +199,8 @@ public interface HybridClient {
          * @param failedPages  List of 1-indexed page numbers that failed during backend processing.
          */
         public HybridResponse(String markdown, String html, JsonNode json,
-                              Map<Integer, JsonNode> pageContents, List<Integer> failedPages) {
+                              Map<Integer, JsonNode> pageContents, List<Integer> failedPages,
+                              JsonNode rawPayload) {
             this.markdown = markdown != null ? markdown : "";
             this.html = html != null ? html : "";
             this.json = json;
@@ -206,6 +208,7 @@ public interface HybridClient {
             this.failedPages = failedPages != null
                 ? Collections.unmodifiableList(new ArrayList<>(failedPages))
                 : Collections.emptyList();
+            this.rawPayload = rawPayload;
         }
 
         /**
@@ -217,7 +220,7 @@ public interface HybridClient {
          * @param pageContents Per-page JSON content, keyed by 1-indexed page number.
          */
         public HybridResponse(String markdown, String html, JsonNode json, Map<Integer, JsonNode> pageContents) {
-            this(markdown, html, json, pageContents, Collections.emptyList());
+            this(markdown, html, json, pageContents, Collections.emptyList(), null);
         }
 
         /**
@@ -228,7 +231,7 @@ public interface HybridClient {
          * @param pageContents Per-page JSON content, keyed by 1-indexed page number.
          */
         public HybridResponse(String markdown, JsonNode json, Map<Integer, JsonNode> pageContents) {
-            this(markdown, "", json, pageContents, Collections.emptyList());
+            this(markdown, "", json, pageContents, Collections.emptyList(), null);
         }
 
         /**
@@ -237,7 +240,7 @@ public interface HybridClient {
          * @return A new HybridResponse with empty/null values.
          */
         public static HybridResponse empty() {
-            return new HybridResponse("", "", null, Collections.emptyMap());
+            return new HybridResponse("", "", null, Collections.emptyMap(), Collections.emptyList(), null);
         }
 
         public String getMarkdown() {
@@ -269,6 +272,10 @@ public interface HybridClient {
             return failedPages;
         }
 
+        public JsonNode getRawPayload() {
+            return rawPayload;
+        }
+
         /**
          * Returns whether the backend reported any failed pages.
          *
@@ -287,12 +294,13 @@ public interface HybridClient {
                 Objects.equals(html, that.html) &&
                 Objects.equals(json, that.json) &&
                 Objects.equals(pageContents, that.pageContents) &&
-                Objects.equals(failedPages, that.failedPages);
+                Objects.equals(failedPages, that.failedPages) &&
+                Objects.equals(rawPayload, that.rawPayload);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(markdown, html, json, pageContents, failedPages);
+            return Objects.hash(markdown, html, json, pageContents, failedPages, rawPayload);
         }
     }
 

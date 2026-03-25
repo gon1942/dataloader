@@ -15,6 +15,7 @@
  */
 package org.opendataloader.pdf.processors;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.opendataloader.pdf.containers.StaticLayoutContainers;
 import org.opendataloader.pdf.processors.readingorder.XYCutPlusPlusSorter;
 import org.opendataloader.pdf.json.JsonWriter;
@@ -51,6 +52,9 @@ import org.verapdf.xmp.containers.StaticXmpCoreContainers;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -344,11 +348,52 @@ public class DocumentProcessor {
                 textGenerator.writeToText(contents);
             }
         }
+        writeHybridRawOutputsIfPresent(config.getOutputFolder());
     }
 
     private static String getOutputFilePath(File inputPDF, String outputFolder, String extension) {
         String baseName = inputPDF.getName().substring(0, inputPDF.getName().length() - 4);
         return outputFolder + File.separator + baseName + "." + extension;
+    }
+
+    private static void writeHybridRawOutputsIfPresent(String outputFolder) {
+        JsonNode rawPayload = HybridDocumentProcessor.consumeLastRawPayload();
+        if (rawPayload == null || rawPayload.isNull()) {
+            return;
+        }
+
+        Path rawDir = Path.of(outputFolder, "_paddle_raw");
+        try {
+            Files.createDirectories(rawDir);
+            Files.writeString(rawDir.resolve("paddle_raw.json"),
+                rawPayload.toPrettyString(), StandardCharsets.UTF_8);
+
+            JsonNode pagesNode = rawPayload.get("pages");
+            if (pagesNode != null && pagesNode.isArray()) {
+                int pageIndex = 1;
+                for (JsonNode pageNode : pagesNode) {
+                    JsonNode markdownNode = pageNode.get("markdown");
+                    if (markdownNode == null || !markdownNode.isObject()) {
+                        pageIndex++;
+                        continue;
+                    }
+                    JsonNode markdownTextNode = markdownNode.get("markdown_texts");
+                    if (markdownTextNode == null || !markdownTextNode.isTextual()) {
+                        markdownTextNode = markdownNode.get("text");
+                    }
+                    if (markdownTextNode != null && markdownTextNode.isTextual()) {
+                        Files.writeString(
+                            rawDir.resolve(String.format(Locale.ROOT, "page_%04d.md", pageIndex)),
+                            markdownTextNode.asText(),
+                            StandardCharsets.UTF_8
+                        );
+                    }
+                    pageIndex++;
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Unable to write hybrid raw outputs: {0}", e.getMessage());
+        }
     }
 
     /**

@@ -66,9 +66,16 @@ import java.util.stream.Collectors;
 public class HybridDocumentProcessor {
 
     private static final Logger LOGGER = Logger.getLogger(HybridDocumentProcessor.class.getCanonicalName());
+    private static final ThreadLocal<com.fasterxml.jackson.databind.JsonNode> LAST_RAW_PAYLOAD = new ThreadLocal<>();
 
     private HybridDocumentProcessor() {
         // Static utility class
+    }
+
+    public static com.fasterxml.jackson.databind.JsonNode consumeLastRawPayload() {
+        com.fasterxml.jackson.databind.JsonNode payload = LAST_RAW_PAYLOAD.get();
+        LAST_RAW_PAYLOAD.remove();
+        return payload;
     }
 
     /**
@@ -359,6 +366,7 @@ public class HybridDocumentProcessor {
         // Make API request for all pages (avoids per-chunk overhead)
         HybridRequest request = HybridRequest.allPages(pdfBytes, outputFormats);
         HybridResponse response = client.convert(request);
+        LAST_RAW_PAYLOAD.set(response.getRawPayload());
 
         // Collect failed pages (convert from 1-indexed to 0-indexed)
         if (response.hasFailedPages()) {

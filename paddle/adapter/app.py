@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import tempfile
+import threading
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -19,28 +23,26 @@ logger = logging.getLogger("odl-paddle-adapter")
 
 app = FastAPI(
     title="OpenDataLoader Paddle Adapter",
-    version="0.1.0",
-    description="FastAPI adapter skeleton for paddleocr_vl15_vllm.",
+    version="0.2.0",
+    description="FastAPI adapter that runs PaddleOCRVL against a vLLM server.",
 )
+
+_pipeline_lock = threading.Lock()
+_pipeline_instance: Any | None = None
 
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
-    """Adapter health check.
-
-    This only verifies that the adapter process is alive. The backend probe is
-    exposed separately via `/health/backend`.
-    """
     return {
         "status": "ok",
         "adapter": "alive",
         "paddle_base_url": settings.paddle_base_url,
+        "paddle_vllm_server_url": settings.paddle_vllm_server_url(),
     }
 
 
 @app.get("/health/backend")
 async def backend_health() -> JSONResponse:
-    """Proxy a lightweight health check to the Paddle backend."""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(settings.paddle_health_url())
@@ -64,72 +66,182 @@ async def convert_file(
     files: UploadFile = File(...),
     page_ranges: str | None = Form(None),
 ) -> JSONResponse:
-    """Accept a PDF like docling-fast and forward it to the Paddle backend.
+    paddle_payload = await _run_paddle(files=files, page_ranges=page_ranges)
+    content = build_placeholder_hybrid_response(paddle_payload)
+    content["paddle_raw"] = {
+        "pages": paddle_payload if isinstance(paddle_payload, list) else [paddle_payload],
+    }
+    return JSONResponse(content=content)
 
-    This is only the transport skeleton. The backend request shape here is a
-    placeholder and should be aligned with the real PaddleVL server contract.
-    """
+
+@app.post("/v1/convert/file/paddle-raw")
+async def convert_file_paddle_raw(
+    files: UploadFile = File(...),
+    page_ranges: str | None = Form(None),
+) -> JSONResponse:
+    paddle_payload = await _run_paddle(files=files, page_ranges=page_ranges)
+    return JSONResponse(
+        content={
+            "status": "success",
+            "source": "paddle_raw",
+            "pages": paddle_payload if isinstance(paddle_payload, list) else [paddle_payload],
+        }
+    )
+
+
+async def _run_paddle(files: UploadFile, page_ranges: str | None) -> Any:
     pdf_bytes = await files.read()
     if not pdf_bytes:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
+    suffix = Path(files.filename or "document.pdf").suffix or ".pdf"
+
     logger.info(
-        "Forwarding %s bytes to Paddle backend. filename=%s page_ranges=%s",
-        len(pdf_bytes),
+        "Running PaddleOCRVL for filename=%s bytes=%s page_ranges=%s via %s",
         files.filename or "document.pdf",
+        len(pdf_bytes),
         page_ranges,
+        settings.paddle_vllm_server_url(),
     )
-
-    try:
-        paddle_payload = await _call_paddle_backend(
-            pdf_bytes=pdf_bytes,
-            filename=files.filename or "document.pdf",
-            page_ranges=page_ranges,
-        )
-    except httpx.HTTPStatusError as exc:
-        body = exc.response.text if exc.response is not None else ""
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                f"Paddle backend returned HTTP {exc.response.status_code if exc.response else 'unknown'} "
-                f"for {settings.paddle_convert_url()}: {body}"
-            ),
-        ) from exc
-    except httpx.HTTPError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Failed to call Paddle backend at {settings.paddle_convert_url()}: {exc}",
-        ) from exc
-
-    content = build_placeholder_hybrid_response(paddle_payload)
-    return JSONResponse(content=content)
-
-
-async def _call_paddle_backend(
-    pdf_bytes: bytes,
-    filename: str,
-    page_ranges: str | None,
-) -> Any:
-    """Placeholder request to the Paddle backend.
-
-    Replace this request shape once the actual `paddleocr_vl15_vllm` API
-    contract is confirmed.
-    """
-    files = {
-        "file": (filename, pdf_bytes, "application/pdf"),
-    }
-    data = {}
     if page_ranges:
-        data["page_ranges"] = page_ranges
+        logger.warning("page_ranges is currently ignored by the Paddle adapter: %s", page_ranges)
 
-    async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
-        response = await client.post(
-            settings.paddle_convert_url(),
-            files=files,
-            data=data,
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(pdf_bytes)
+            tmp_path = Path(tmp.name)
+
+        paddle_payload = await asyncio.to_thread(_predict_pdf, tmp_path)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"PaddleOCRVL execution failed: {exc}",
+        ) from exc
+    finally:
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Failed to remove temporary file: %s", tmp_path)
+
+    return paddle_payload
+
+
+def _predict_pdf(pdf_path: Path) -> Any:
+    pipeline = _get_pipeline()
+    outputs = pipeline.predict(str(pdf_path))
+    return _normalize_outputs(outputs)
+
+
+def _get_pipeline() -> Any:
+    global _pipeline_instance
+    if _pipeline_instance is not None:
+        return _pipeline_instance
+
+    with _pipeline_lock:
+        if _pipeline_instance is not None:
+            return _pipeline_instance
+
+        try:
+            from paddleocr import PaddleOCRVL
+        except Exception as exc:
+            raise RuntimeError(
+                "Unable to import PaddleOCRVL. Check adapter runtime dependencies, "
+                "including paddleocr/paddlex and NumPy compatibility."
+            ) from exc
+
+        logger.info("Initializing PaddleOCRVL with vLLM server %s", settings.paddle_vllm_server_url())
+        _pipeline_instance = PaddleOCRVL(
+            vl_rec_backend="vllm-server",
+            vl_rec_server_url=settings.paddle_vllm_server_url(),
         )
-        response.raise_for_status()
-        return _safe_json_or_text(response)
+        return _pipeline_instance
+
+
+def _normalize_outputs(outputs: Any) -> Any:
+    if isinstance(outputs, list):
+        return [_normalize_output_item(index, item) for index, item in enumerate(outputs)]
+    return _normalize_output_item(0, outputs)
+
+
+def _normalize_output_item(page_index: int, item: Any) -> Any:
+    normalized: dict[str, Any] = {"page_index": page_index}
+
+    raw_json = _extract_result_json(item)
+    if raw_json is not None:
+        normalized["pruned_result"] = _prune_result(raw_json)
+        normalized["raw_result"] = _normalize_plain_data(raw_json)
+
+    markdown = _extract_markdown(item)
+    if markdown is not None:
+        normalized["markdown"] = markdown
+
+    if len(normalized) > 1:
+        return normalized
+
+    if hasattr(item, "to_dict"):
+        try:
+            return item.to_dict()
+        except Exception:
+            pass
+    return _normalize_plain_data(item)
+
+
+def _extract_result_json(item: Any) -> dict[str, Any] | None:
+    json_value = getattr(item, "json", None)
+    if isinstance(json_value, dict):
+        result = json_value.get("res")
+        if isinstance(result, dict):
+            return result
+    if isinstance(item, dict):
+        result = item.get("res")
+        if isinstance(result, dict):
+            return result
+    return None
+
+
+def _extract_markdown(item: Any) -> dict[str, Any] | None:
+    to_markdown = getattr(item, "_to_markdown", None)
+    if callable(to_markdown):
+        try:
+            markdown_data = to_markdown(pretty=True, show_formula_number=False)
+            if isinstance(markdown_data, dict):
+                return _normalize_plain_data(markdown_data)
+        except Exception as exc:
+            logger.warning("Failed to extract markdown from Paddle result: %s", exc)
+    return None
+
+
+def _prune_result(result: dict[str, Any]) -> dict[str, Any]:
+    keys_to_remove = {"input_path", "page_index"}
+
+    def _process(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return {
+                key: _process(value)
+                for key, value in obj.items()
+                if key not in keys_to_remove
+            }
+        if isinstance(obj, list):
+            return [_process(value) for value in obj]
+        return obj
+
+    return _process(result)
+
+
+def _normalize_plain_data(item: Any) -> Any:
+    if isinstance(item, dict):
+        return {key: _normalize_plain_data(value) for key, value in item.items()}
+    if isinstance(item, (list, tuple)):
+        return [_normalize_plain_data(value) for value in item]
+    if isinstance(item, (str, int, float, bool)) or item is None:
+        return item
+    if hasattr(item, "__dict__"):
+        return {key: _normalize_plain_data(value) for key, value in vars(item).items()}
+    return str(item)
 
 
 def _safe_json_or_text(response: httpx.Response) -> Any:

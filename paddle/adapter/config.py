@@ -7,6 +7,7 @@ class Settings:
     paddle_base_url: str = os.getenv("PADDLE_BASE_URL", "http://localhost:8080")
     paddle_health_path: str = os.getenv("PADDLE_HEALTH_PATH", "/v1/models")
     paddle_convert_path: str = os.getenv("PADDLE_CONVERT_PATH", "/v1/chat/completions")
+    paddle_vllm_server_path: str = os.getenv("PADDLE_VLLM_SERVER_PATH", "/v1")
     request_timeout_seconds: float = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "120"))
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
 
@@ -15,6 +16,9 @@ class Settings:
 
     def paddle_convert_url(self) -> str:
         return self._join(self.paddle_convert_path)
+
+    def paddle_vllm_server_url(self) -> str:
+        return self._join(self.paddle_vllm_server_path)
 
     def _join(self, path: str) -> str:
         return self.paddle_base_url.rstrip("/") + "/" + path.lstrip("/")

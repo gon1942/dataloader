@@ -441,3 +441,81 @@ GPU가 없어도 동작하지만 OCR/수식/이미지 설명 속도가 느립니
 |--------|---------|
 | docling-fast | `http://localhost:5002` |
 | hancom | `https://dataloader.cloud.hancom.com/studio-lite/api` |
+
+
+
+## docling-fast + paddlevl -------------------------------------------------------
+
+
+
+cd /home/gon/work/ttt3/opendataloader-pdf
+시작: GPU_DEVICE=1 ./paddle/start_stack.sh
+종료: ./paddle/stop_stack.sh
+
+
+
+
+  ## hybrid 기본(docling-fast + EasyOCR)
+  ```
+  opendataloader-pdf \
+  --hybrid docling-fast \
+  --format json,html,markdown,markdown-with-images \
+  -o tmp/odl-hybrid-base/input1_paddle_formats \
+  samples/pdf/input1.pdf
+  ```
+
+  ## ling-fast  + paddlevl
+  ```
+  opendataloader-pdf \
+  --hybrid docling-fast \
+  --hybrid-url http://127.0.0.1:8090 \
+  --format json,html,markdown,markdown-with-images \
+  -o tmp/odl-hybrid-paddle/input7 \
+  samples/pdf/input7.pdf
+  ```
+
+  none hybrid
+  opendataloader-pdf -f markdown,json,html,pdf --reading-order xycut  -o ./tmp/odl-xycut/input1  samples/pdf/input1.pdf 
+
+
+  ## 도커로 되어있는 paddle만  ocr 테스트 -----------------
+  ```
+  cd /home/gon/work/ttt3/opendataloader-pdf/paddle/paddleocr_vll_docker/client
+  python3 ocr_pdf_v1.py --input /home/gon/work/ttt3/opendataloader-pdf/samples/pdf/input1.pdf
+  ```
+
+
+
+
+##  도커 테스트 
+docker cp odl_paddle_adapter:/tmp/paddle_only_out ./tmp/paddle_only_input
+
+
+```
+docker exec -it odl_paddle_adapter /bin/bash -lc '
+python - << "PY"
+from pathlib import Path
+from paddleocr import PaddleOCRVL
+
+pipeline = PaddleOCRVL(
+    vl_rec_backend="vllm-server",
+    vl_rec_server_url="http://127.0.0.1:8080/v1",
+)
+
+outputs = pipeline.predict("/tmp/input1.pdf")
+out_dir = Path("/tmp/paddle_only_out")
+out_dir.mkdir(parents=True, exist_ok=True)
+
+for i, res in enumerate(outputs):
+    print(f"=== Page {i} ===")
+    res.print()
+    res.save_to_json(save_path=str(out_dir / "json"))
+    res.save_to_markdown(save_path=str(out_dir / "md"))
+
+print(f"saved to: {out_dir}")
+PY
+'
+
+```
+
+docker cp odl_paddle_adapter:/tmp/paddle_only_out /home/gon/work/ttt3/opendataloader-pdf/tmp/paddle_only_input1 

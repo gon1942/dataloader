@@ -415,3 +415,39 @@ java -Djava.awt.headless=true -jar java/opendataloader-pdf-cli/target/opendatalo
 
 
 opendataloader-pdf -f markdown,json,html,pdf --reading-order xycut  -o ./tmp/odl-xycut/input10  samples/pdf/input10.pdf
+
+
+
+
+
+
+
+
+
+
+
+
+opendataloader-pdf-hybrid는 opendataloader-pdf가 --hybrid docling-fast 모드에서 붙는 외부 Python backend 서버입니다.
+
+역할:
+
+PDF를 받아서
+Docling 기반 문서 파싱 수행
+OCR 수행
+표/문단/레이아웃 구조를 추출
+그 결과를 OpenDataLoader가 읽는 json_content 형태로 반환
+즉 구조는 이렇습니다.
+
+opendataloader-pdf (Java CLI)
+  -> opendataloader-pdf-hybrid (Python server)
+    -> Docling + OCR backend
+기본 docling-fast 경로에서는 이 서버가 보통 localhost:5002에서 뜹니다.
+
+이 프로젝트 안의 구현 위치:
+
+hybrid_server.py
+정리하면:
+
+opendataloader-pdf: 메인 CLI/라이브러리
+opendataloader-pdf-hybrid: hybrid 모드용 외부 서버
+즉 --hybrid docling-fast를 쓸 때 실제 OCR/파싱을 대신 수행하는 서버가 바로 이겁니다.

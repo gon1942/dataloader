@@ -81,9 +81,11 @@ echo "[5/5] Starting adapter"
 docker run -d \
   --name "$ADAPTER_CONTAINER" \
   --network host \
+  -e PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True \
   -e PADDLE_BASE_URL="http://127.0.0.1:${VLM_PORT}" \
   -e PADDLE_HEALTH_PATH=/v1/models \
   -e PADDLE_CONVERT_PATH=/v1/chat/completions \
+  -e PADDLE_VLLM_SERVER_PATH=/v1 \
   -e REQUEST_TIMEOUT_SECONDS=120 \
   -e LOG_LEVEL=INFO \
   "$ADAPTER_IMAGE" \
