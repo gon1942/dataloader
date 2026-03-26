@@ -207,6 +207,8 @@ public class DocumentProcessor {
             logPageContents("After assigning IDs", pageNumber, pageContents);
             CaptionProcessor.processCaptions(pageContents);
             logPageContents("After caption detection", pageNumber, pageContents);
+            pageContents = DominantImageTextFilterProcessor.filterCoveredText(pageContents, getPageBoundingBox(pageNumber));
+            logPageContents("After dominant image text filtering", pageNumber, pageContents);
             contents.set(pageNumber, pageContents);
         }
         LOGGER.log(Level.INFO, "Reconciling cross-page semantic structures");
