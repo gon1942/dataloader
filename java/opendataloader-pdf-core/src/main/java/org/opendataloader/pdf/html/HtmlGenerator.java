@@ -21,8 +21,6 @@ import org.opendataloader.pdf.entities.SemanticFormula;
 import org.opendataloader.pdf.entities.SemanticPicture;
 import org.opendataloader.pdf.markdown.MarkdownSyntax;
 import org.opendataloader.pdf.utils.Base64ImageUtils;
-import org.opendataloader.pdf.utils.DocumentMetadataUtils;
-import org.opendataloader.pdf.utils.DocumentMetadataUtils.DocumentMetadata;
 import org.opendataloader.pdf.utils.ImagesUtils;
 import org.verapdf.wcag.algorithms.entities.IObject;
 import org.verapdf.wcag.algorithms.entities.SemanticHeaderOrFooter;
@@ -107,7 +105,6 @@ public class HtmlGenerator implements Closeable {
             htmlWriter.write("<html lang=\"und\">\n<head>\n<meta charset=\"utf-8\">\n");
             htmlWriter.write("<title>" + pdfFileName + "</title>\n");
             htmlWriter.write("</head>\n<body>\n");
-            writeMetadataSection(contents);
 
             for (int pageNumber = 0; pageNumber < StaticContainers.getDocument().getNumberOfPages(); pageNumber++) {
                 writePageSeparator(pageNumber);
@@ -121,43 +118,6 @@ public class HtmlGenerator implements Closeable {
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Unable to create html output: " + e.getMessage());
         }
-    }
-
-    protected void writeMetadataSection(List<List<IObject>> contents) throws IOException {
-        DocumentMetadata metadata = DocumentMetadataUtils.getDocumentMetadata(pdfFilePath.toFile(), contents);
-        htmlWriter.write("<section class=\"document-metadata\">");
-        htmlWriter.write(HtmlSyntax.HTML_LINE_BREAK);
-        htmlWriter.write("<h1>metadata</h1>");
-        htmlWriter.write(HtmlSyntax.HTML_LINE_BREAK);
-        htmlWriter.write("<dl>");
-        htmlWriter.write(HtmlSyntax.HTML_LINE_BREAK);
-        writeMetadataEntry("source", metadata.getSource());
-        writeMetadataEntry("file_name", metadata.getFileName());
-        writeMetadataEntry("file_size", String.valueOf(metadata.getFileSize()));
-        writeMetadataEntry("total_pages", String.valueOf(metadata.getTotalPages()));
-        writeMetadataEntry("extraction_method", metadata.getExtractionMethod());
-        writeMetadataEntry("has_tables", String.valueOf(metadata.isHasTables()));
-        writeMetadataEntry("table_count", String.valueOf(metadata.getTableCount()));
-        writeMetadataEntry("title", metadata.getTitle());
-        writeMetadataEntry("author", metadata.getAuthor());
-        writeMetadataEntry("subject", metadata.getSubject());
-        writeMetadataEntry("creator", metadata.getCreator());
-        writeMetadataEntry("producer", metadata.getProducer());
-        writeMetadataEntry("creation_date", metadata.getCreationDate());
-        writeMetadataEntry("modification_date", metadata.getModificationDate());
-        htmlWriter.write("</dl>");
-        htmlWriter.write(HtmlSyntax.HTML_LINE_BREAK);
-        htmlWriter.write("</section>");
-        htmlWriter.write(HtmlSyntax.HTML_LINE_BREAK);
-    }
-
-    protected void writeMetadataEntry(String key, String value) throws IOException {
-        htmlWriter.write("<dt>");
-        htmlWriter.write(getCorrectString(key));
-        htmlWriter.write("</dt><dd>");
-        htmlWriter.write(getCorrectString(value != null ? value : "null"));
-        htmlWriter.write("</dd>");
-        htmlWriter.write(HtmlSyntax.HTML_LINE_BREAK);
     }
 
     /**

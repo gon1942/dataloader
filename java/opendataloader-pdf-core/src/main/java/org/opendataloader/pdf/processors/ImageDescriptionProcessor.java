@@ -46,6 +46,11 @@ import org.opendataloader.pdf.containers.StaticLayoutContainers;
  */
 public final class ImageDescriptionProcessor {
     private static final Logger LOGGER = Logger.getLogger(ImageDescriptionProcessor.class.getCanonicalName());
+    private static final double HEADER_FOOTER_ZONE_RATIO = 0.12;
+    private static final double MAX_DECORATIVE_AREA_RATIO = 0.025;
+    private static final double MAX_DECORATIVE_HEIGHT_RATIO = 0.18;
+    private static final double MAX_DECORATIVE_WIDTH_RATIO = 0.35;
+    private static final double MIN_WIDE_LOGO_ASPECT_RATIO = 2.0;
 
     private ImageDescriptionProcessor() {
     }
@@ -127,7 +132,8 @@ public final class ImageDescriptionProcessor {
                                                  Config config,
                                                  int pictureIndex) {
         String description = null;
-        if (imageChunk.getBoundingBox() != null && imageChunk.getWidth() > 0 && imageChunk.getHeight() > 0) {
+        if (shouldDescribeImage(imageChunk) && imageChunk.getBoundingBox() != null
+            && imageChunk.getWidth() > 0 && imageChunk.getHeight() > 0) {
             try {
                 String imageBase64 = toBase64Image(imageChunk, contrastRatioConsumer, config.getImageFormat());
                 if (imageBase64 != null && !imageBase64.isEmpty()) {
@@ -146,6 +152,49 @@ public final class ImageDescriptionProcessor {
         SemanticPicture picture = new SemanticPicture(imageChunk.getBoundingBox(), pictureIndex, description);
         picture.setRecognizedStructureId(imageChunk.getRecognizedStructureId());
         return picture;
+    }
+
+    static boolean shouldDescribeImage(ImageChunk imageChunk) {
+        if (imageChunk == null || imageChunk.getBoundingBox() == null) {
+            return false;
+        }
+        int pageIndex = Math.max(0, imageChunk.getPageNumber() - 1);
+        return shouldDescribeImage(imageChunk, DocumentProcessor.getPageBoundingBox(pageIndex));
+    }
+
+    static boolean shouldDescribeImage(ImageChunk imageChunk, org.verapdf.wcag.algorithms.entities.geometry.BoundingBox pageBoundingBox) {
+        if (imageChunk == null || imageChunk.getBoundingBox() == null) {
+            return false;
+        }
+        if (pageBoundingBox == null) {
+            return true;
+        }
+
+        org.verapdf.wcag.algorithms.entities.geometry.BoundingBox imageBox = imageChunk.getBoundingBox();
+        double pageWidth = Math.max(0.0, pageBoundingBox.getRightX() - pageBoundingBox.getLeftX());
+        double pageHeight = Math.max(0.0, pageBoundingBox.getTopY() - pageBoundingBox.getBottomY());
+        double imageWidth = Math.max(0.0, imageBox.getRightX() - imageBox.getLeftX());
+        double imageHeight = Math.max(0.0, imageBox.getTopY() - imageBox.getBottomY());
+        if (pageWidth == 0.0 || pageHeight == 0.0 || imageWidth == 0.0 || imageHeight == 0.0) {
+            return true;
+        }
+
+        double pageArea = pageWidth * pageHeight;
+        double imageArea = imageWidth * imageHeight;
+        double zoneHeight = pageHeight * HEADER_FOOTER_ZONE_RATIO;
+
+        boolean inTopZone = imageBox.getBottomY() >= pageBoundingBox.getTopY() - zoneHeight;
+        boolean inBottomZone = imageBox.getTopY() <= pageBoundingBox.getBottomY() + zoneHeight;
+        if (!inTopZone && !inBottomZone) {
+            return true;
+        }
+
+        boolean smallArea = imageArea <= pageArea * MAX_DECORATIVE_AREA_RATIO;
+        boolean shortHeight = imageHeight <= pageHeight * MAX_DECORATIVE_HEIGHT_RATIO;
+        boolean narrowWidth = imageWidth <= pageWidth * MAX_DECORATIVE_WIDTH_RATIO;
+        boolean wideLogo = imageWidth / imageHeight >= MIN_WIDE_LOGO_ASPECT_RATIO;
+
+        return !(smallArea && shortHeight && (narrowWidth || wideLogo));
     }
 
     private static String toBase64Image(ImageChunk imageChunk,

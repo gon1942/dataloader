@@ -29,10 +29,11 @@ import org.verapdf.wcag.algorithms.entities.tables.tableBorders.TableBorder;
 import java.io.File;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,10 +41,13 @@ public final class DocumentMetadataUtils {
     private static final String EXTRACTION_METHOD = "opendataloader-pdf";
     private static final Pattern PDF_DATE_PATTERN = Pattern.compile(
         "^D:(\\d{4})(\\d{2})?(\\d{2})?(\\d{2})?(\\d{2})?(\\d{2})?([Zz]|([+-])(\\d{2})'?(\\d{2})'?)?$");
-    private static final DateTimeFormatter KOREAN_DATE_TIME =
-        DateTimeFormatter.ofPattern("yyyy년 M월 d일 a h:mm:ss", Locale.KOREAN);
-    private static final DateTimeFormatter KOREAN_DATE =
-        DateTimeFormatter.ofPattern("yyyy년 M월 d일", Locale.KOREAN);
+    private static final DateTimeFormatter ISO_DATE_TIME = new DateTimeFormatterBuilder()
+        .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
+        .optionalStart()
+        .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+        .optionalEnd()
+        .toFormatter();
+    private static final DateTimeFormatter ISO_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private DocumentMetadataUtils() {
     }
@@ -65,8 +69,8 @@ public final class DocumentMetadataUtils {
             firstNonBlank(info.getSubject(), info.getXMPDescription()),
             firstNonBlank(info.getCreator(), info.getXMPCreatorTool()),
             firstNonBlank(info.getProducer(), info.getXMPProducer()),
-            formatDateKorean(firstNonBlank(info.getCreationDate(), info.getXMPCreateDate())),
-            formatDateKorean(firstNonBlank(info.getModDate(), info.getXMPModifyDate()))
+            formatDateIso(firstNonBlank(info.getCreationDate(), info.getXMPCreateDate())),
+            formatDateIso(firstNonBlank(info.getModDate(), info.getXMPModifyDate()))
         );
     }
 
@@ -87,7 +91,7 @@ public final class DocumentMetadataUtils {
         return pages;
     }
 
-    public static String formatDateKorean(String rawDate) {
+    public static String formatDateIso(String rawDate) {
         if (rawDate == null || rawDate.trim().isEmpty()) {
             return null;
         }
@@ -99,19 +103,19 @@ public final class DocumentMetadataUtils {
 
         try {
             OffsetDateTime dateTime = OffsetDateTime.parse(rawDate);
-            return dateTime.format(KOREAN_DATE_TIME);
+            return dateTime.toLocalDateTime().format(ISO_DATE_TIME);
         } catch (DateTimeParseException ignored) {
         }
 
         try {
             LocalDateTime dateTime = LocalDateTime.parse(rawDate);
-            return dateTime.format(KOREAN_DATE_TIME);
+            return dateTime.format(ISO_DATE_TIME);
         } catch (DateTimeParseException ignored) {
         }
 
         try {
             LocalDate date = LocalDate.parse(rawDate);
-            return date.format(KOREAN_DATE);
+            return date.format(ISO_DATE);
         } catch (DateTimeParseException ignored) {
         }
 
@@ -133,18 +137,7 @@ public final class DocumentMetadataUtils {
 
         try {
             LocalDateTime localDateTime = LocalDateTime.of(year, month, day, hour, minute, second);
-            String timezone = matcher.group(7);
-            if (timezone == null || timezone.isEmpty()) {
-                return localDateTime.format(KOREAN_DATE_TIME);
-            }
-            if ("Z".equalsIgnoreCase(timezone)) {
-                return localDateTime.atOffset(ZoneOffset.UTC).format(KOREAN_DATE_TIME);
-            }
-            String sign = matcher.group(8);
-            int offsetHour = parseOrDefault(matcher.group(9), 0);
-            int offsetMinute = parseOrDefault(matcher.group(10), 0);
-            ZoneOffset offset = ZoneOffset.of(String.format("%s%02d:%02d", sign, offsetHour, offsetMinute));
-            return localDateTime.atOffset(offset).format(KOREAN_DATE_TIME);
+            return localDateTime.format(ISO_DATE_TIME);
         } catch (DateTimeException ex) {
             return rawDate;
         }

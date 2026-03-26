@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MarkdownHtmlMetadataIntegrationTest {
@@ -45,7 +45,7 @@ class MarkdownHtmlMetadataIntegrationTest {
     }
 
     @Test
-    void writesMetadataSectionToMarkdownAndHtml() throws IOException {
+    void doesNotWriteMetadataSectionToMarkdownAndHtml() throws IOException {
         Config config = new Config();
         config.setOutputFolder(tempDir.toString());
         config.setGenerateMarkdown(true);
@@ -56,12 +56,9 @@ class MarkdownHtmlMetadataIntegrationTest {
         String markdown = Files.readString(tempDir.resolve("lorem.md"));
         String html = Files.readString(tempDir.resolve("lorem.html"));
 
-        assertTrue(markdown.contains("## metadata"));
-        assertTrue(markdown.contains("- creation_date: "));
-        assertTrue(markdown.contains("년"));
-
-        assertTrue(html.contains("<section class=\"document-metadata\">"));
-        assertTrue(html.contains("<dt>creation_date</dt><dd>"));
-        assertTrue(html.contains("년"));
+        assertFalse(markdown.contains("## metadata"));
+        assertFalse(markdown.contains("- creation_date: "));
+        assertFalse(html.contains("<section class=\"document-metadata\">"));
+        assertFalse(html.contains("<dt>creation_date</dt><dd>"));
     }
 }

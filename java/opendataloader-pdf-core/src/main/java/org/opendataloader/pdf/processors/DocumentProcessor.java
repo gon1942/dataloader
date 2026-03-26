@@ -209,6 +209,8 @@ public class DocumentProcessor {
             logPageContents("After caption detection", pageNumber, pageContents);
             pageContents = DominantImageTableFilterProcessor.filterFalseTables(pageContents, getPageBoundingBox(pageNumber));
             logPageContents("After dominant image table filtering", pageNumber, pageContents);
+            pageContents = DominantImageTableCellImageFilterProcessor.filterNestedTableImages(pageContents, getPageBoundingBox(pageNumber));
+            logPageContents("After dominant image table-cell image filtering", pageNumber, pageContents);
             pageContents = DominantImageTextFilterProcessor.filterCoveredText(pageContents, getPageBoundingBox(pageNumber));
             logPageContents("After dominant image text filtering", pageNumber, pageContents);
             contents.set(pageNumber, pageContents);
