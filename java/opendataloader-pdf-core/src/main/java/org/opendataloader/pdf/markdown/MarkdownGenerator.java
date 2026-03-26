@@ -181,8 +181,9 @@ public class MarkdownGenerator implements Closeable {
                     imageSource = relativePath;
                 }
                 if (imageSource != null) {
-                    // Use simple alt text
-                    String altText = "image " + picture.getPictureIndex();
+                    String altText = picture.hasDescription()
+                        ? picture.getDescription().replace("\n", " ").replace("\r", "")
+                        : "image " + picture.getPictureIndex();
                     String imageString = String.format(MarkdownSyntax.IMAGE_FORMAT, altText, imageSource);
                     markdownWriter.write(getCorrectMarkdownString(imageString));
 

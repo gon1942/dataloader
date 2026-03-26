@@ -24,6 +24,12 @@ export function registerCliOptions(program: Command): void {
   program.option('--image-output <value>', 'Image output mode. Values: off (no images), embedded (Base64 data URIs), external (file references). Default: external');
   program.option('--image-format <value>', 'Output format for extracted images. Values: png, jpeg. Default: png');
   program.option('--image-dir <value>', 'Directory for extracted images');
+  program.option('--image-description', 'Generate image descriptions in Java mode using a vision model API');
+  program.option('--image-description-url <value>', 'Image description API URL. Default: https://api.hamonize.com/ollama/api/chat');
+  program.option('--image-description-model <value>', 'Image description model name. Default: airun-vision:latest');
+  program.option('--image-description-prompt <value>', 'Custom prompt for image description');
+  program.option('--image-description-language <value>', 'Language for generated image descriptions. Default: ko');
+  program.option('--image-description-timeout <value>', 'Image description request timeout in milliseconds. Default: 30000');
   program.option('--pages <value>', 'Pages to extract (e.g., "1,3,5-7"). Default: all pages');
   program.option('--include-header-footer', 'Include page headers and footers in output');
   program.option('--detect-strikethrough', 'Detect strikethrough text and wrap with ~~ in Markdown output (experimental)');

@@ -28,6 +28,12 @@ def convert(
     image_output: Optional[str] = None,
     image_format: Optional[str] = None,
     image_dir: Optional[str] = None,
+    image_description: bool = False,
+    image_description_url: Optional[str] = None,
+    image_description_model: Optional[str] = None,
+    image_description_prompt: Optional[str] = None,
+    image_description_language: Optional[str] = None,
+    image_description_timeout: Optional[str] = None,
     pages: Optional[str] = None,
     include_header_footer: bool = False,
     detect_strikethrough: bool = False,
@@ -59,6 +65,12 @@ def convert(
         image_output: Image output mode. Values: off (no images), embedded (Base64 data URIs), external (file references). Default: external
         image_format: Output format for extracted images. Values: png, jpeg. Default: png
         image_dir: Directory for extracted images
+        image_description: Generate image descriptions in Java mode using a vision model API
+        image_description_url: Image description API URL. Default: https://api.hamonize.com/ollama/api/chat
+        image_description_model: Image description model name. Default: airun-vision:latest
+        image_description_prompt: Custom prompt for image description
+        image_description_language: Language for generated image descriptions. Default: ko
+        image_description_timeout: Image description request timeout in milliseconds. Default: 30000
         pages: Pages to extract (e.g., "1,3,5-7"). Default: all pages
         include_header_footer: Include page headers and footers in output
         detect_strikethrough: Detect strikethrough text and wrap with ~~ in Markdown output (experimental)
@@ -118,6 +130,18 @@ def convert(
         args.extend(["--image-format", image_format])
     if image_dir:
         args.extend(["--image-dir", image_dir])
+    if image_description:
+        args.append("--image-description")
+    if image_description_url:
+        args.extend(["--image-description-url", image_description_url])
+    if image_description_model:
+        args.extend(["--image-description-model", image_description_model])
+    if image_description_prompt:
+        args.extend(["--image-description-prompt", image_description_prompt])
+    if image_description_language:
+        args.extend(["--image-description-language", image_description_language])
+    if image_description_timeout:
+        args.extend(["--image-description-timeout", image_description_timeout])
     if pages:
         args.extend(["--pages", pages])
     if include_header_footer:

@@ -1,200 +1,96 @@
-## 10. AI 작업 지시사항
 
-이 섹션은 AI 에이전트에게 바로 전달할 수 있는 작업 지시문입니다.
+현재 hybrid 동작
+현재 hybrid의 이미지 설명은 Python 서버에서 Docling 옵션으로 켜집니다.
+ hybrid_server.py (line 192) 에서 do_picture_description, generate_picture_images, picture_description_options를 설정하고,
+  Docling 응답의 pictures[].annotations[].kind == "description" 값을 Java에서 DoclingSchemaTransformer.java (line 376) 가 읽어 SemanticPicture로 만듭니다. 
+  그 다음 출력기는 그냥 그 필드를 소비합니다: 
+  JSON은 PictureSerializer.java (line 49), Markdown는 MarkdownGenerator.java (line 167), 
+  HTML은 HtmlGenerator.java (line 240) 입니다. 
+  
+  반대로 비hybrid는 보통 ImageChunk만 남고, 이 경우 ImageSerializer.java (line 38) 는 description을 쓸 수 없습니다.
 
-### 공통 지시
+비hybrid에 넣는 권장 방식
+권장 위치는 DocumentProcessor.java (line 73) 의 로컬 파이프라인 끝, generateOutputs(...) 직전입니다. 
+여기서 contents를 순회하며 ImageChunk를 찾고, 각 이미지 bbox를 crop해서 VLM에 보내고, 결과를 new SemanticPicture(bbox, imageIndex, description) 로 바꿔치기하면 됩니다.
+ 이 방식의 장점은 출력기 수정이 거의 필요 없다는 점입니다. ImagesUtils가 이미 SemanticPicture도 파일로 저장할 수 있고 ImagesUtils.java (line 65), Markdown/JSON/HTML도 그대로 동작합니다.
 
-- 이 저장소 안에서만 작업할 것
-- 기존 동작을 무조건 지우지 말고, 필요한 범위만 수정할 것
-- 임시 우회 하드코딩은 넣지 말 것
-- 특정 파일명, 특정 키워드, 특정 문서 내용에 의존하는 분기 처리는 금지
-- `input1.pdf`는 검증용 샘플로만 사용할 것
-- 목표는 일반적인 PDF 입력에 대해 동작 가능한 adapter 구조를 만드는 것
+구조는 이렇게 두는 게 좋습니다.
 
+Config/CLI에 로컬용 옵션 추가
+ImageDescriptionProcessor 추가: List<List<IObject>>를 받아 ImageChunk를 SemanticPicture로 변환
+ImageDescriptionClient 인터페이스 추가
+OllamaCompatibleImageDescriptionClient 구현 추가: https://api.hamonize.com/ollama/api/chat 호출
+crop 유틸 추가: bbox -> image bytes/base64
+옵션 설계
+이름은 hybrid 서버 옵션과 혼동을 피하는 게 좋습니다. 추천은 아래입니다.
 
-### 작업 범위
+--image-description
+--image-description-url
+--image-description-model
+--image-description-prompt
+--image-description-timeout
+--image-description-max-images 또는 --image-description-min-area
+--enrich-picture-description를 로컬 CLI에도 재사용할 수도 있지만, 지금 저장소에서 그 이름은 hybrid 서버 의미가 강합니다. 사용자 혼동을 줄이려면 로컬은 --image-description 계열이 더 안전합니다.
 
-수정 가능 파일:
+엔진 연동 방식
+제공한 엔드포인트는 Ollama 호환 /api/chat처럼 보입니다. 다만 지금 예시는 텍스트만 보내는 예시라서 “이미지를 어떤 필드로 넣는지”는 추가 확인이 필요합니다.
+ 보통 Ollama 계열은 messages[].images에 base64 배열을 넣거나, 다른 스펙은 content 배열 파트 방식을 씁니다. 이 부분은 실제 airun-vision:latest가 요구하는 이미지 payload 형식을 먼저 확정해야 합니다. 이게 구현의 유일한 큰 불확실성입니다.
 
-- `paddle/adapter/app.py`
-- `paddle/adapter/config.py`
-- `paddle/adapter/transform.py`
-- `paddle/adapter/Dockerfile`
-- `paddle/adapter/requirements.txt`
-- `paddle/start_stack.sh`
-- `paddle/run_opendataloader.sh`
-- 필요 시 관련 문서 파일
+주의할 점
 
-가능하면 수정하지 말아야 할 파일:
+지금 HTML 출력은 figcaption에는 설명을 쓰지만 alt 속성은 단순 "figureN" 입니다. 접근성을 목표로 하면 HtmlGenerator.java (line 255) 도 설명 우선으로 바꾸는 게 맞습니다.
+이미지 설명은 텍스트보다 비용이 큽니다. 너무 작은 아이콘, 장식 이미지, 배경 이미지는 제외해야 합니다. 기존 CaptionProcessor의 subtle image 기준 CaptionProcessor.java (line 100) 을 재활용할 수 있습니다.
+sanitize와의 순서를 신경써야 합니다. 설명문에 민감정보가 들어갈 수 있으므로, 생성된 description도 후처리 대상에 포함되게 해야 합니다.
 
-- Java core 처리 로직
-- 기존 `docling-fast` 구현
-- `samples/pdf/` 아래 샘플 원본 파일
+CLI 옵션을 Java에 추가하면 CLAUDE.md (line 5) 대로 npm run sync가 필요합니다.
 
-### 1차 작업 지시
+가장 현실적인 구현 순서는 이렇습니다.
 
-목표:
+로컬 모드에서 ImageChunk 수집 후 bbox crop 가능하게 유틸 분리
+OllamaCompatibleImageDescriptionClient로 1장 설명 생성
+ImageChunk -> SemanticPicture 변환 processor 추가
+JSON/Markdown 검증
+HTML alt 개선
+작은 이미지 제외, timeout, 실패시 fallback 추가
 
-- `paddle/adapter/app.py`를 단순 HTTP 프록시에서 실제 Paddle 실행기로 변경할 것
+원하면 다음 단계로 바로 넘어가서, 이 설계대로 들어갈 클래스/옵션/호출 지점까지 구체적인 변경안 형태로 정리해드리겠습니다.
 
-구체 지시:
 
-1. `/v1/convert/file`로 들어온 PDF를 임시 파일로 저장할 것
-2. adapter 내부에서 `PaddleOCRVL`을 import할 것
-3. `PaddleOCRVL(vl_rec_backend="vllm-server", vl_rec_server_url=...)` 형태로 초기화할 것
-4. `predict(pdf_path)`를 호출할 것
-5. Paddle raw result를 `transform.py`로 넘길 것
-6. 더 이상 `/v1/chat/completions`에 PDF 파일을 직접 POST하지 말 것
+## 구현 -----------
 
-금지:
+비hybrid 모드용 이미지 설명 기능을 구현했습니다.
 
-- PDF를 다시 `multipart/form-data`로 Paddle backend에 전달하는 방식 유지
-- 특정 입력 파일명 기준 분기
-- 테스트용 mock 응답을 실제 코드 경로에 남겨두는 것
+주요 변경은 ImageDescriptionProcessor.java (line 52) 에서 로컬 파이프라인의 ImageChunk를 순회하며 PDF crop 이미지를 base64로 인코딩하고, OllamaImageDescriptionClient.java (line 49) 로 https://api.hamonize.com/ollama/api/chat에 messages[].images 형태로 전송해 설명을 받아 SemanticPicture로 승격하도록 넣었습니다. 이 단계는 DocumentProcessor.java (line 90) 에서 비hybrid 경로에만 연결했고, 설명 텍스트는 sanitizer 전에 생성되도록 배치했습니다.
 
-완료 기준:
+CLI/설정도 추가했습니다. 새 옵션은 CLIOptions.java (line 105) 에 있고, 기본값은 Config.java (line 86) 에 반영했습니다.
 
-- `Unsupported Media Type` 에러가 제거될 것
-- adapter가 Paddle raw result를 실제로 받을 것
+--image-description
+--image-description-url
+--image-description-model
+--image-description-prompt
+--image-description-timeout
+출력 쪽도 SemanticPicture.description을 alt/caption에 더 잘 쓰도록 조정했습니다. 옵션 생성물과 문서도 재생성해서 options.json, Python/Node generated 파일, CLI 옵션 문서까지 반영됐습니다.
 
-### 2차 작업 지시
+검증은 ./java/mvnw -f java/pom.xml -DskipTests package 성공으로 확인했습니다. npm run sync 자체는 현재 환경의 테스트/X11 제약 때문에 실패해서, 대신 패키징 후 옵션/스키마 생성만 별도로 완료했습니다. 실제 API 연동 E2E는 네트워크 제약 때문에 여기서는 못 돌렸습니다.
 
-목표:
+사용 예시는 이렇게 하면 됩니다.
 
-- adapter 컨테이너에서도 `PaddleOCRVL.predict()`가 동작하게 만들 것
+opendataloader-pdf input.pdf -o out -f json,markdown --image-description
+기본 엔진은 airun-vision:latest, 기본 URL은 https://api.hamonize.com/ollama/api/chat 입니다.
 
-구체 지시:
 
-1. `paddle/adapter/Dockerfile`에 필요한 Python 패키지 설치를 반영할 것
-2. `requirements.txt`를 실제 실행 기준으로 정리할 것
-3. 컨테이너 안에서 `from paddleocr import PaddleOCRVL` import 가능해야 함
-4. 필요 시 시스템 패키지를 추가할 것
 
-금지:
 
-- host 환경에만 의존하는 설명으로 끝내는 것
-- container와 host가 서로 다르게 동작하는 상태를 방치하는 것
 
-완료 기준:
+./scripts/build-all.sh 0.0.0
+opendataloader-pdf --help | rg 'image-description'
 
-- adapter 컨테이너 내부에서 Paddle 실행 경로가 정상 동작할 것
 
-### 3차 작업 지시
 
-목표:
+## command -----------
 
-- Paddle raw output 구조를 확인하고 샘플을 저장할 것
+opendataloader-pdf -f markdown,json,html,pdf --reading-order xycut  -o ./tmp/odl-xycut/img1  testfile/img1.pdf 
 
-구체 지시:
+opendataloader-pdf -f json,markdown,html --image-description testfile/img1.pdf -o ./tmp/odl-img/img1
 
-1. `predict()` 결과 구조를 확인할 것
-2. page 단위 필드, text 블록, table 블록, bbox 관련 필드를 정리할 것
-3. 필요하면 디버그용 raw payload 저장 기능을 넣을 것
-4. 단, 디버그 출력은 끄거나 제어 가능해야 함
-
-금지:
-
-- 결과 구조를 추측만 하고 구현하는 것
-- 샘플 payload 없이 `transform.py`를 크게 작성하는 것
-
-완료 기준:
-
-- `transform.py` 구현에 필요한 입력 구조가 확보될 것
-
-### 4차 작업 지시
-
-목표:
-
-- `transform.py`를 placeholder에서 실제 변환기로 바꿀 것
-
-구체 지시:
-
-1. OpenDataLoader hybrid path가 읽을 수 있는 최소 스키마를 먼저 맞출 것
-2. page 정보부터 구현할 것
-3. text block 매핑을 넣을 것
-4. table block 매핑을 넣을 것
-5. span 정보는 가능하면 넣되, 처음부터 완전하게 하지 않아도 됨
-
-금지:
-
-- raw payload를 그대로 `backend_payload`에만 넣고 끝내는 것
-- placeholder 응답을 유지한 채 "성공"으로 처리하는 것
-
-완료 기준:
-
-- OpenDataLoader가 backend 결과를 받아 `json/md/html`을 생성할 것
-
-### 5차 작업 지시
-
-목표:
-
-- `input1.pdf` 기준 end-to-end 실행 검증
-
-구체 지시:
-
-실행 순서:
-
-```bash
-cd /home/gon/work/ttt3/opendataloader-pdf
-./paddle/stop_stack.sh
-GPU_DEVICE=1 ./paddle/start_stack.sh
-./paddle/run_opendataloader.sh samples/pdf/input1.pdf tmp/odl-hybrid/input1
-```
-
-검증 항목:
-
-1. adapter 502가 없어야 함
-2. OpenDataLoader CLI가 종료 코드 0으로 끝나야 함
-3. `tmp/odl-hybrid/input1/input1.json`
-4. `tmp/odl-hybrid/input1/input1.md`
-5. `tmp/odl-hybrid/input1/input1.html`
-   가 생성되어야 함
-
-금지:
-
-- 문서만 수정하고 실행 검증을 생략하는 것
-- 실패했는데 원인 확인 없이 다음 단계로 넘어가는 것
-
-완료 기준:
-
-- end-to-end 결과 파일 생성 확인
-
-### 6차 작업 지시
-
-목표:
-
-- 품질 점검과 후속 과제 분리
-
-구체 지시:
-
-1. 생성된 `json/md/html`을 열어 결과 품질을 확인할 것
-2. 실행 성공과 품질 문제를 분리해서 기록할 것
-3. OCR 문제와 schema 변환 문제를 구분해서 적을 것
-4. 다음 개선 작업이 무엇인지 남길 것
-
-금지:
-
-- 실행 성공만으로 품질도 정상이라고 결론 내리는 것
-
-완료 기준:
-
-- 후속 개선 포인트가 문서로 남을 것
-
-### AI 최종 산출물
-
-AI는 작업 완료 후 아래를 남겨야 합니다.
-
-1. 수정한 파일 목록
-2. 어떤 단계까지 완료했는지
-3. 실제 실행한 검증 명령
-4. 성공한 항목
-5. 아직 남은 문제
-6. 다음으로 이어서 할 작업
-
-### AI가 지켜야 할 구현 원칙
-
-- 하드코딩 금지
-- 특정 샘플 전용 분기 금지
-- 실패 시 원인 로그를 남길 것
-- placeholder를 실제 구현으로 교체할 것
-- “연결만 된다” 수준에서 멈추지 말고, 실제 산출물 생성까지 검증할 것
+opendataloader-pdf testfile/img1.pdf -o ./tmp/odl-img/img1 -f json,markdown,html --image-description --image-description-language en

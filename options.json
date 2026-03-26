@@ -137,6 +137,54 @@
       "description": "Directory for extracted images"
     },
     {
+      "name": "image-description",
+      "shortName": null,
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Generate image descriptions in Java mode using a vision model API"
+    },
+    {
+      "name": "image-description-url",
+      "shortName": null,
+      "type": "string",
+      "required": false,
+      "default": "https://api.hamonize.com/ollama/api/chat",
+      "description": "Image description API URL. Default: https://api.hamonize.com/ollama/api/chat"
+    },
+    {
+      "name": "image-description-model",
+      "shortName": null,
+      "type": "string",
+      "required": false,
+      "default": "airun-vision:latest",
+      "description": "Image description model name. Default: airun-vision:latest"
+    },
+    {
+      "name": "image-description-prompt",
+      "shortName": null,
+      "type": "string",
+      "required": false,
+      "default": null,
+      "description": "Custom prompt for image description"
+    },
+    {
+      "name": "image-description-language",
+      "shortName": null,
+      "type": "string",
+      "required": false,
+      "default": "ko",
+      "description": "Language for generated image descriptions. Default: ko"
+    },
+    {
+      "name": "image-description-timeout",
+      "shortName": null,
+      "type": "string",
+      "required": false,
+      "default": "30000",
+      "description": "Image description request timeout in milliseconds. Default: 30000"
+    },
+    {
       "name": "pages",
       "shortName": null,
       "type": "string",

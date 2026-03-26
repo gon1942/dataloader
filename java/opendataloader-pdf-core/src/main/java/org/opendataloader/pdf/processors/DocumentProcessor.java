@@ -88,6 +88,9 @@ public class DocumentProcessor {
             contents = processDocument(inputPdfName, config, pagesToProcess);
         }
         sortContents(contents, config);
+        if (!config.isHybridEnabled()) {
+            ImageDescriptionProcessor.enrichDescriptions(contents, inputPdfName, config);
+        }
         ContentSanitizer contentSanitizer = new ContentSanitizer(config.getFilterConfig().getFilterRules(),
             config.getFilterConfig().isFilterSensitiveData());
         contentSanitizer.sanitizeContents(contents);
@@ -174,6 +177,10 @@ public class DocumentProcessor {
             logPageContents("After aligned text table detection", pageNumber, pageContents);
             pageContents = SpecialTableProcessor.detectSpecialTables(pageContents);
             logPageContents("After special table detection", pageNumber, pageContents);
+            pageContents = ImageMergeProcessor.mergeImages(pageContents);
+            logPageContents("After image merge", pageNumber, pageContents);
+            pageContents = ImageFilterProcessor.filterImages(pageContents);
+            logPageContents("After image filtering", pageNumber, pageContents);
             contents.set(pageNumber, pageContents);
         }
         LOGGER.log(Level.INFO, "Running header/footer detection");

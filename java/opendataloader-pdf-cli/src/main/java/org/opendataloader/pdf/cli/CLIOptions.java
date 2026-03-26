@@ -102,6 +102,24 @@ public class CLIOptions {
     private static final String IMAGE_DIR_LONG_OPTION = "image-dir";
     private static final String IMAGE_DIR_DESC = "Directory for extracted images";
 
+    private static final String IMAGE_DESCRIPTION_LONG_OPTION = "image-description";
+    private static final String IMAGE_DESCRIPTION_DESC = "Generate image descriptions in Java mode using a vision model API";
+
+    private static final String IMAGE_DESCRIPTION_URL_LONG_OPTION = "image-description-url";
+    private static final String IMAGE_DESCRIPTION_URL_DESC = "Image description API URL. Default: https://api.hamonize.com/ollama/api/chat";
+
+    private static final String IMAGE_DESCRIPTION_MODEL_LONG_OPTION = "image-description-model";
+    private static final String IMAGE_DESCRIPTION_MODEL_DESC = "Image description model name. Default: airun-vision:latest";
+
+    private static final String IMAGE_DESCRIPTION_PROMPT_LONG_OPTION = "image-description-prompt";
+    private static final String IMAGE_DESCRIPTION_PROMPT_DESC = "Custom prompt for image description";
+
+    private static final String IMAGE_DESCRIPTION_LANGUAGE_LONG_OPTION = "image-description-language";
+    private static final String IMAGE_DESCRIPTION_LANGUAGE_DESC = "Language for generated image descriptions. Default: ko";
+
+    private static final String IMAGE_DESCRIPTION_TIMEOUT_LONG_OPTION = "image-description-timeout";
+    private static final String IMAGE_DESCRIPTION_TIMEOUT_DESC = "Image description request timeout in milliseconds. Default: 30000";
+
     // ===== Pages =====
     private static final String PAGES_LONG_OPTION = "pages";
     private static final String PAGES_DESC = "Pages to extract (e.g., \"1,3,5-7\"). Default: all pages";
@@ -171,6 +189,17 @@ public class CLIOptions {
             new OptionDefinition(IMAGE_OUTPUT_LONG_OPTION, null, "string", "external", IMAGE_OUTPUT_DESC, true),
             new OptionDefinition(IMAGE_FORMAT_LONG_OPTION, null, "string", "png", IMAGE_FORMAT_DESC, true),
             new OptionDefinition(IMAGE_DIR_LONG_OPTION, null, "string", null, IMAGE_DIR_DESC, true),
+            new OptionDefinition(IMAGE_DESCRIPTION_LONG_OPTION, null, "boolean", false, IMAGE_DESCRIPTION_DESC, true),
+            new OptionDefinition(IMAGE_DESCRIPTION_URL_LONG_OPTION, null, "string",
+                    "https://api.hamonize.com/ollama/api/chat", IMAGE_DESCRIPTION_URL_DESC, true),
+            new OptionDefinition(IMAGE_DESCRIPTION_MODEL_LONG_OPTION, null, "string",
+                    "airun-vision:latest", IMAGE_DESCRIPTION_MODEL_DESC, true),
+            new OptionDefinition(IMAGE_DESCRIPTION_PROMPT_LONG_OPTION, null, "string", null,
+                    IMAGE_DESCRIPTION_PROMPT_DESC, true),
+            new OptionDefinition(IMAGE_DESCRIPTION_LANGUAGE_LONG_OPTION, null, "string", "ko",
+                    IMAGE_DESCRIPTION_LANGUAGE_DESC, true),
+            new OptionDefinition(IMAGE_DESCRIPTION_TIMEOUT_LONG_OPTION, null, "string", "30000",
+                    IMAGE_DESCRIPTION_TIMEOUT_DESC, true),
             new OptionDefinition(PAGES_LONG_OPTION, null, "string", null, PAGES_DESC, true),
             new OptionDefinition(INCLUDE_HEADER_FOOTER_LONG_OPTION, null, "boolean", false,
                     INCLUDE_HEADER_FOOTER_DESC, true),
@@ -300,6 +329,33 @@ public class CLIOptions {
         }
         if (commandLine.hasOption(IMAGE_DIR_LONG_OPTION)) {
             config.setImageDir(commandLine.getOptionValue(IMAGE_DIR_LONG_OPTION));
+        }
+        if (commandLine.hasOption(IMAGE_DESCRIPTION_LONG_OPTION)) {
+            config.setImageDescription(true);
+        }
+        if (commandLine.hasOption(IMAGE_DESCRIPTION_URL_LONG_OPTION)) {
+            config.setImageDescriptionUrl(commandLine.getOptionValue(IMAGE_DESCRIPTION_URL_LONG_OPTION));
+        }
+        if (commandLine.hasOption(IMAGE_DESCRIPTION_MODEL_LONG_OPTION)) {
+            config.setImageDescriptionModel(commandLine.getOptionValue(IMAGE_DESCRIPTION_MODEL_LONG_OPTION));
+        }
+        if (commandLine.hasOption(IMAGE_DESCRIPTION_PROMPT_LONG_OPTION)) {
+            config.setImageDescriptionPrompt(commandLine.getOptionValue(IMAGE_DESCRIPTION_PROMPT_LONG_OPTION));
+        }
+        if (commandLine.hasOption(IMAGE_DESCRIPTION_LANGUAGE_LONG_OPTION)) {
+            config.setImageDescriptionLanguage(commandLine.getOptionValue(IMAGE_DESCRIPTION_LANGUAGE_LONG_OPTION));
+        }
+        if (commandLine.hasOption(IMAGE_DESCRIPTION_TIMEOUT_LONG_OPTION)) {
+            String timeoutValue = commandLine.getOptionValue(IMAGE_DESCRIPTION_TIMEOUT_LONG_OPTION);
+            if (timeoutValue != null && !timeoutValue.trim().isEmpty()) {
+                try {
+                    config.setImageDescriptionTimeoutMs(Integer.parseInt(timeoutValue.trim()));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            String.format("Invalid image description timeout '%s'. Must be a positive integer.",
+                                    timeoutValue));
+                }
+            }
         }
     }
 

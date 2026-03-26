@@ -39,6 +39,18 @@ export interface ConvertOptions {
   imageFormat?: string;
   /** Directory for extracted images */
   imageDir?: string;
+  /** Generate image descriptions in Java mode using a vision model API */
+  imageDescription?: boolean;
+  /** Image description API URL. Default: https://api.hamonize.com/ollama/api/chat */
+  imageDescriptionUrl?: string;
+  /** Image description model name. Default: airun-vision:latest */
+  imageDescriptionModel?: string;
+  /** Custom prompt for image description */
+  imageDescriptionPrompt?: string;
+  /** Language for generated image descriptions. Default: ko */
+  imageDescriptionLanguage?: string;
+  /** Image description request timeout in milliseconds. Default: 30000 */
+  imageDescriptionTimeout?: string;
   /** Pages to extract (e.g., "1,3,5-7"). Default: all pages */
   pages?: string;
   /** Include page headers and footers in output */
@@ -78,6 +90,12 @@ export interface CliOptions {
   imageOutput?: string;
   imageFormat?: string;
   imageDir?: string;
+  imageDescription?: boolean;
+  imageDescriptionUrl?: string;
+  imageDescriptionModel?: string;
+  imageDescriptionPrompt?: string;
+  imageDescriptionLanguage?: string;
+  imageDescriptionTimeout?: string;
   pages?: string;
   includeHeaderFooter?: boolean;
   detectStrikethrough?: boolean;
@@ -144,6 +162,24 @@ export function buildConvertOptions(cliOptions: CliOptions): ConvertOptions {
   }
   if (cliOptions.imageDir) {
     convertOptions.imageDir = cliOptions.imageDir;
+  }
+  if (cliOptions.imageDescription) {
+    convertOptions.imageDescription = true;
+  }
+  if (cliOptions.imageDescriptionUrl) {
+    convertOptions.imageDescriptionUrl = cliOptions.imageDescriptionUrl;
+  }
+  if (cliOptions.imageDescriptionModel) {
+    convertOptions.imageDescriptionModel = cliOptions.imageDescriptionModel;
+  }
+  if (cliOptions.imageDescriptionPrompt) {
+    convertOptions.imageDescriptionPrompt = cliOptions.imageDescriptionPrompt;
+  }
+  if (cliOptions.imageDescriptionLanguage) {
+    convertOptions.imageDescriptionLanguage = cliOptions.imageDescriptionLanguage;
+  }
+  if (cliOptions.imageDescriptionTimeout) {
+    convertOptions.imageDescriptionTimeout = cliOptions.imageDescriptionTimeout;
   }
   if (cliOptions.pages) {
     convertOptions.pages = cliOptions.pages;
@@ -241,6 +277,24 @@ export function buildArgs(options: ConvertOptions): string[] {
   }
   if (options.imageDir) {
     args.push('--image-dir', options.imageDir);
+  }
+  if (options.imageDescription) {
+    args.push('--image-description');
+  }
+  if (options.imageDescriptionUrl) {
+    args.push('--image-description-url', options.imageDescriptionUrl);
+  }
+  if (options.imageDescriptionModel) {
+    args.push('--image-description-model', options.imageDescriptionModel);
+  }
+  if (options.imageDescriptionPrompt) {
+    args.push('--image-description-prompt', options.imageDescriptionPrompt);
+  }
+  if (options.imageDescriptionLanguage) {
+    args.push('--image-description-language', options.imageDescriptionLanguage);
+  }
+  if (options.imageDescriptionTimeout) {
+    args.push('--image-description-timeout', options.imageDescriptionTimeout);
   }
   if (options.pages) {
     args.push('--pages', options.pages);

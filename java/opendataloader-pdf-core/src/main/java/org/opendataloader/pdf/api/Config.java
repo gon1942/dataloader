@@ -83,6 +83,13 @@ public class Config {
     private final HybridConfig hybridConfig = new HybridConfig();
     private boolean includeHeaderFooter = false;
     private boolean detectStrikethrough = false;
+    private boolean imageDescription = false;
+    private String imageDescriptionUrl = "https://api.hamonize.com/ollama/api/chat";
+    private String imageDescriptionModel = "airun-vision:latest";
+    private String imageDescriptionPrompt =
+        "Describe what you see in this image. Include any text, numbers, labels, and data values visible.";
+    private String imageDescriptionLanguage = "ko";
+    private int imageDescriptionTimeoutMs = 30000;
 
     /** Table detection method: default (border-based detection). */
     public static final String TABLE_METHOD_DEFAULT = "default";
@@ -853,6 +860,74 @@ public class Config {
 
     public void setDetectStrikethrough(boolean detectStrikethrough) {
         this.detectStrikethrough = detectStrikethrough;
+    }
+
+    public boolean isImageDescriptionEnabled() {
+        return imageDescription;
+    }
+
+    public void setImageDescription(boolean imageDescription) {
+        this.imageDescription = imageDescription;
+    }
+
+    public String getImageDescriptionUrl() {
+        return imageDescriptionUrl;
+    }
+
+    public void setImageDescriptionUrl(String imageDescriptionUrl) {
+        if (imageDescriptionUrl != null && imageDescriptionUrl.trim().isEmpty()) {
+            this.imageDescriptionUrl = "https://api.hamonize.com/ollama/api/chat";
+        } else if (imageDescriptionUrl != null) {
+            this.imageDescriptionUrl = imageDescriptionUrl.trim();
+        }
+    }
+
+    public String getImageDescriptionModel() {
+        return imageDescriptionModel;
+    }
+
+    public void setImageDescriptionModel(String imageDescriptionModel) {
+        if (imageDescriptionModel != null && imageDescriptionModel.trim().isEmpty()) {
+            this.imageDescriptionModel = "airun-vision:latest";
+        } else if (imageDescriptionModel != null) {
+            this.imageDescriptionModel = imageDescriptionModel.trim();
+        }
+    }
+
+    public String getImageDescriptionPrompt() {
+        return imageDescriptionPrompt;
+    }
+
+    public void setImageDescriptionPrompt(String imageDescriptionPrompt) {
+        if (imageDescriptionPrompt != null && imageDescriptionPrompt.trim().isEmpty()) {
+            this.imageDescriptionPrompt =
+                "Describe what you see in this image. Include any text, numbers, labels, and data values visible.";
+        } else if (imageDescriptionPrompt != null) {
+            this.imageDescriptionPrompt = imageDescriptionPrompt.trim();
+        }
+    }
+
+    public int getImageDescriptionTimeoutMs() {
+        return imageDescriptionTimeoutMs;
+    }
+
+    public void setImageDescriptionTimeoutMs(int imageDescriptionTimeoutMs) {
+        if (imageDescriptionTimeoutMs <= 0) {
+            throw new IllegalArgumentException("Image description timeout must be a positive integer.");
+        }
+        this.imageDescriptionTimeoutMs = imageDescriptionTimeoutMs;
+    }
+
+    public String getImageDescriptionLanguage() {
+        return imageDescriptionLanguage;
+    }
+
+    public void setImageDescriptionLanguage(String imageDescriptionLanguage) {
+        if (imageDescriptionLanguage != null && imageDescriptionLanguage.trim().isEmpty()) {
+            this.imageDescriptionLanguage = "ko";
+        } else if (imageDescriptionLanguage != null) {
+            this.imageDescriptionLanguage = imageDescriptionLanguage.trim();
+        }
     }
 
 }

@@ -100,7 +100,7 @@ public class ImagesUtils {
         String imageFormat = StaticLayoutContainers.getImageFormat();
         String fileName = String.format(MarkdownSyntax.IMAGE_FILE_NAME_FORMAT, StaticLayoutContainers.getImagesDirectory(), File.separator, currentImageIndex, imageFormat);
         chunk.setIndex(currentImageIndex);
-        createImageFile(chunk.getBoundingBox(), fileName, imageFormat);
+        createImageFile(PictureCropUtils.getCropBoundingBox(chunk.getBoundingBox()), fileName, imageFormat);
     }
 
     protected void writePicture(SemanticPicture picture, String pdfFilePath, String password) {
@@ -111,7 +111,7 @@ public class ImagesUtils {
         }
         String imageFormat = StaticLayoutContainers.getImageFormat();
         String fileName = String.format(MarkdownSyntax.IMAGE_FILE_NAME_FORMAT, StaticLayoutContainers.getImagesDirectory(), File.separator, pictureIndex, imageFormat);
-        createImageFile(picture.getBoundingBox(), fileName, imageFormat);
+        createImageFile(PictureCropUtils.getCropBoundingBox(picture.getBoundingBox()), fileName, imageFormat);
     }
 
     private void createImageFile(BoundingBox imageBox, String fileName, String imageFormat) {

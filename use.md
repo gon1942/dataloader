@@ -30,7 +30,7 @@ opendataloader-pdf/
 
 ## 2. 주요 실행 방식
 
-### 2.1 Java JAR 직접 실행
+### 2.1 Java JAR 직접 실행 
 
 가장 정확하게 "Java 코드"를 검증하는 방법입니다.
 
@@ -42,7 +42,7 @@ java -jar java/opendataloader-pdf-cli/target/opendataloader-pdf-cli-0.0.0.jar \
   -f json,markdown \
   -o ./tmp/odl-test/input8-xycut \
   --reading-order xycut \
-  samples/pdf/input8.pdf
+  testfile/input8.pdf
 ```
 
 ### 2.2 Python 설치형 CLI 실행
@@ -54,7 +54,7 @@ opendataloader-pdf \
   -f markdown,json,html,pdf \
   -o ./tmp/odl-test/xycut-input9 \
   --reading-order xycut \
-  samples/pdf/input9.pdf
+  testfile/input9.pdf
 ```
 
 주의:
@@ -155,7 +155,7 @@ cd java
 환경변수로 테스트 파일을 바꿀 수 있습니다.
 
 ```bash
-SAMPLE_PDF=./samples/pdf/input8.pdf \
+SAMPLE_PDF=./testfile/input8.pdf \
 FORMAT=markdown,json,html,pdf \
 TEST_OUTPUT_DIR=./tmp/odl-test/install-test \
 ./scripts/dev-package-install-test.sh 0.0.1-dev
@@ -181,7 +181,7 @@ tmp/releases/0.0.1-dev/
 설치 후 smoke test도 가능:
 
 ```bash
-SMOKE_PDF=./samples/pdf/input8.pdf \
+SMOKE_PDF=./testfile/input8.pdf \
 ./scripts/install-production.sh ./tmp/releases/0.0.1-dev
 ```
 
@@ -252,7 +252,7 @@ cd java
 opendataloader-pdf \
   -f markdown,json \
   -o ./tmp/odl-test/input8 \
-  samples/pdf/input8.pdf
+  testfile/input8.pdf
 ```
 
 ### 9.2 XYCut 읽기 순서 사용
@@ -262,7 +262,7 @@ opendataloader-pdf \
   -f markdown,json,html,pdf \
   -o ./tmp/odl-test/xycut-input8 \
   --reading-order xycut \
-  samples/pdf/input8.pdf
+  testfile/input8.pdf
 ```
 
 ### 9.3 Java JAR 직접 사용
@@ -272,7 +272,7 @@ java -jar java/opendataloader-pdf-cli/target/opendataloader-pdf-cli-0.0.0.jar \
   -f markdown,json,html,pdf \
   -o ./tmp/odl-test/xycut-input8 \
   --reading-order xycut \
-  samples/pdf/input8.pdf
+  testfile/input8.pdf
 ```
 
 ### 9.4 여러 포맷 생성
@@ -281,7 +281,7 @@ java -jar java/opendataloader-pdf-cli/target/opendataloader-pdf-cli-0.0.0.jar \
 opendataloader-pdf \
   -f markdown,json,html,pdf \
   -o ./tmp/odl-test/full-output \
-  samples/pdf/input9.pdf
+  testfile/input9.pdf
 ```
 
 생성 가능한 대표 포맷:
@@ -319,7 +319,7 @@ opendataloader-pdf file1.pdf folder/ file2.pdf
 # 특정 페이지만 (1, 3, 5~7페이지)
 opendataloader-pdf file1.pdf --pages "1,3,5-7"
 -o로 출력 디렉토리를 지정하면 결과가 해당 폴더에 생성됩니다:
-opendataloader-pdf samples/pdf/ -o /tmp/output -f markdown
+opendataloader-pdf testfile/ -o /tmp/output -f markdown
 
 
 예시:
@@ -331,7 +331,7 @@ opendataloader-pdf \
   --table-method cluster \
   --reading-order xycut \
   -o ./tmp/odl-test/input10 \
-  samples/pdf/input10.pdf
+  testfile/input10.pdf
 ```
 
 ## 11. Python 코드에서 사용
@@ -340,7 +340,7 @@ opendataloader-pdf \
 import opendataloader_pdf
 
 opendataloader_pdf.convert(
-    input_path=["samples/pdf/input8.pdf"],
+    input_path=["testfile/input8.pdf"],
     output_dir="./tmp/odl-test/python-api",
     format="markdown,json",
     reading_order="xycut",
@@ -358,7 +358,7 @@ java -jar java/opendataloader-pdf-cli/target/opendataloader-pdf-cli-0.0.0.jar \
   -f markdown,json \
   -o ./tmp/odl-test/debug \
   --reading-order xycut \
-  samples/pdf/input8.pdf
+  testfile/input8.pdf
 ```
 
 ### 설치형 CLI까지 포함해서 확인
@@ -369,7 +369,7 @@ opendataloader-pdf \
   -f markdown,json \
   -o ./tmp/odl-test/debug-install \
   --reading-order xycut \
-  samples/pdf/input8.pdf
+  testfile/input8.pdf
 ```
 
 ### 운영 반영
@@ -411,10 +411,10 @@ cd /home/gon/work/ttt3/opendataloader-pdf
 java -Djava.awt.headless=true -jar java/opendataloader-pdf-cli/target/opendataloader-pdf-cli-0.0.1.jar \
   -f html,json \
   -o ./tmp/odl-xycut/input10-fix2 \
-  samples/pdf/input10.pdf
+  testfile/input10.pdf
 
 
-opendataloader-pdf -f markdown,json,html,pdf --reading-order xycut  -o ./tmp/odl-xycut/input10  samples/pdf/input10.pdf
+opendataloader-pdf -f markdown,json,html,pdf --reading-order xycut  -o ./tmp/odl-xycut/input10  testfile/input10.pdf
 
 
 
@@ -451,3 +451,30 @@ hybrid_server.py
 opendataloader-pdf: 메인 CLI/라이브러리
 opendataloader-pdf-hybrid: hybrid 모드용 외부 서버
 즉 --hybrid docling-fast를 쓸 때 실제 OCR/파싱을 대신 수행하는 서버가 바로 이겁니다.
+
+
+
+
+
+
+
+
+
+---- 이미지 설명 
+이 옵션은 opendataloader-pdf 클라이언트 옵션이 아니라 opendataloader-pdf-hybrid 서버 옵션입니다.
+
+이미지 설명 관련 옵션:
+
+--enrich-picture-description: 이미지/차트 설명 생성 활성화. 기본값 false. 구현은 hybrid_server.py (line 471) 에 있고, 도움말은 “alt text generation using SmolVLM”으로 되어 있습니다.
+--no-enrich-picture-description: 위 기능 비활성화. hybrid_server.py (line 477)
+--picture-description-prompt: 이미지 설명용 커스텀 프롬프트 지정. hybrid_server.py (line 482)
+중요한 점:
+
+서버에서 --enrich-picture-description를 켜도, 클라이언트는 반드시 --hybrid-mode full로 호출해야 합니다. 아니면 설명 생성이 건너뛰어집니다. 이 제약은 CLAUDE.md (line 7), README.md (line 246), use_hybird.md (line 333) 에 명시돼 있습니다.
+예시는 이렇게 쓰면 됩니다:
+
+opendataloader-pdf-hybrid --enrich-picture-description
+opendataloader-pdf --hybrid docling-fast --hybrid-mode full testfile/img1.pdf -o ./tmp/odl-img/ -f json,markdown,html
+문서 기준으로는 설명 결과가 JSON의 "description" 필드와 Markdown caption으로 나옵니다. 관련 설명은 README.md (line 254), content/docs/faq.mdx (line 283), use_hybird.md (line 339) 에 있습니다.
+
+원하면 제가 지금 이 저장소 기준으로 opendataloader-pdf --help / opendataloader-pdf-hybrid --help까지 직접 실행해서 실제 노출 옵션도 확인해드리겠습니다.
