@@ -24,6 +24,8 @@ import org.verapdf.wcag.algorithms.entities.content.ImageChunk;
 import org.verapdf.wcag.algorithms.entities.content.TextChunk;
 import org.verapdf.wcag.algorithms.entities.content.TextLine;
 import org.verapdf.wcag.algorithms.entities.geometry.BoundingBox;
+import org.verapdf.wcag.algorithms.entities.lists.ListItem;
+import org.verapdf.wcag.algorithms.entities.lists.PDFList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +40,7 @@ class DominantImageTextFilterProcessorTest {
         contents.add(createHeading(new BoundingBox(1, 137.31, 503.041, 434.498, 527.626), "2024년 지진발생시 행동요령"));
         contents.add(createParagraph(new BoundingBox(1, 665.943, 468.734, 762.136, 483.16), "국민안전처 자료"));
         contents.add(createParagraph(new BoundingBox(1, 173.452, 26.901, 765.994, 50.533), "템플릿_01 3"));
+        contents.add(createList(new BoundingBox(1, 480.472, 36.769, 545.702, 428.206), "Train ‘A’", "Train ‘B’"));
 
         List<IObject> filtered = DominantImageTextFilterProcessor.filterCoveredText(contents, pageBox);
 
@@ -65,5 +68,16 @@ class DominantImageTextFilterProcessorTest {
         SemanticParagraph paragraph = new SemanticParagraph();
         paragraph.add(new TextLine(new TextChunk(boundingBox, text, 10, 10.0)));
         return paragraph;
+    }
+
+    private static PDFList createList(BoundingBox boundingBox, String... items) {
+        PDFList list = new PDFList();
+        list.setBoundingBox(boundingBox);
+        for (int i = 0; i < items.length; i++) {
+            ListItem item = new ListItem(new BoundingBox(boundingBox), (long) (i + 1));
+            item.add(new TextLine(new TextChunk(new BoundingBox(boundingBox), items[i], 10, boundingBox.getBottomY())));
+            list.add(item);
+        }
+        return list;
     }
 }

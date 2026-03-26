@@ -3,8 +3,31 @@
   "number of pages" : 1,
   "author" : "leebd-public",
   "title" : null,
-  "creation date" : "D:20251010112501+09'00'",
-  "modification date" : "D:20251010112501+09'00'",
+  "creation date" : "2025년 10월 10일 오전 11:25:01",
+  "modification date" : "2025년 10월 10일 오전 11:25:01",
+  "metadata" : {
+    "source" : "/home/gon/work/ttt4/dataloader/java/opendataloader-pdf-core/../../samples/pdf/lorem.pdf",
+    "file_name" : "lorem.pdf",
+    "file_size" : 10538,
+    "total_pages" : 1,
+    "extraction_method" : "opendataloader-pdf",
+    "has_tables" : false,
+    "table_count" : 0,
+    "title" : null,
+    "author" : "leebd-public",
+    "subject" : null,
+    "creator" : "Hwp 2024 13.0.0.2986",
+    "producer" : "Hancom PDF 1.3.0.550",
+    "creation_date" : "2025년 10월 10일 오전 11:25:01",
+    "modification_date" : "2025년 10월 10일 오전 11:25:01"
+  },
+  "pages" : [ {
+    "page" : 1,
+    "width" : 595.0,
+    "height" : 841.0,
+    "has_tables" : false,
+    "table_count" : 0
+  } ],
   "kids" : [ {
     "type" : "heading",
     "id" : 1,

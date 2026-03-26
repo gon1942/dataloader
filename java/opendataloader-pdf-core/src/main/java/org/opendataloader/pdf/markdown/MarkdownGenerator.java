@@ -20,6 +20,8 @@ import org.opendataloader.pdf.containers.StaticLayoutContainers;
 import org.opendataloader.pdf.entities.SemanticFormula;
 import org.opendataloader.pdf.entities.SemanticPicture;
 import org.opendataloader.pdf.utils.Base64ImageUtils;
+import org.opendataloader.pdf.utils.DocumentMetadataUtils;
+import org.opendataloader.pdf.utils.DocumentMetadataUtils.DocumentMetadata;
 import org.opendataloader.pdf.utils.ImagesUtils;
 import org.verapdf.wcag.algorithms.entities.IObject;
 import org.verapdf.wcag.algorithms.entities.SemanticHeaderOrFooter;
@@ -48,6 +50,7 @@ public class MarkdownGenerator implements Closeable {
     protected static final Logger LOGGER = Logger.getLogger(MarkdownGenerator.class.getCanonicalName());
     protected final FileWriter markdownWriter;
     protected final String markdownFileName;
+    protected final File inputPdf;
     protected int tableNesting = 0;
     protected boolean isImageSupported;
     protected String markdownPageSeparator;
@@ -56,6 +59,7 @@ public class MarkdownGenerator implements Closeable {
     protected boolean includeHeaderFooter = false;
 
     MarkdownGenerator(File inputPdf, Config config) throws IOException {
+        this.inputPdf = inputPdf;
         String cutPdfFileName = inputPdf.getName();
         this.markdownFileName = config.getOutputFolder() + File.separator + cutPdfFileName.substring(0, cutPdfFileName.length() - 3) + "md";
         this.markdownWriter = new FileWriter(markdownFileName, StandardCharsets.UTF_8);
@@ -68,6 +72,7 @@ public class MarkdownGenerator implements Closeable {
 
     public void writeToMarkdown(List<List<IObject>> contents) {
         try {
+            writeMetadataSection(contents);
             for (int pageNumber = 0; pageNumber < StaticContainers.getDocument().getNumberOfPages(); pageNumber++) {
                 writePageSeparator(pageNumber);
                 for (IObject content : contents.get(pageNumber)) {
@@ -83,6 +88,33 @@ public class MarkdownGenerator implements Closeable {
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Unable to create markdown output: " + e.getMessage());
         }
+    }
+
+    protected void writeMetadataSection(List<List<IObject>> contents) throws IOException {
+        DocumentMetadata metadata = DocumentMetadataUtils.getDocumentMetadata(inputPdf, contents);
+        markdownWriter.write("## metadata");
+        writeContentsSeparator();
+        writeMetadataLine("source", metadata.getSource());
+        writeMetadataLine("file_name", metadata.getFileName());
+        writeMetadataLine("file_size", String.valueOf(metadata.getFileSize()));
+        writeMetadataLine("total_pages", String.valueOf(metadata.getTotalPages()));
+        writeMetadataLine("extraction_method", metadata.getExtractionMethod());
+        writeMetadataLine("has_tables", String.valueOf(metadata.isHasTables()));
+        writeMetadataLine("table_count", String.valueOf(metadata.getTableCount()));
+        writeMetadataLine("title", metadata.getTitle());
+        writeMetadataLine("author", metadata.getAuthor());
+        writeMetadataLine("subject", metadata.getSubject());
+        writeMetadataLine("creator", metadata.getCreator());
+        writeMetadataLine("producer", metadata.getProducer());
+        writeMetadataLine("creation_date", metadata.getCreationDate());
+        writeMetadataLine("modification_date", metadata.getModificationDate());
+        writeContentsSeparator();
+    }
+
+    protected void writeMetadataLine(String key, String value) throws IOException {
+        markdownWriter.write("- " + key + ": ");
+        markdownWriter.write(getCorrectMarkdownString(value != null ? value : "null"));
+        writeLineBreak();
     }
 
     protected void writePageSeparator(int pageNumber) throws IOException {

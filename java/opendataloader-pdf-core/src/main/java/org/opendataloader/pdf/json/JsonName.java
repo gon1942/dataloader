@@ -16,6 +16,22 @@
 package org.opendataloader.pdf.json;
 
 public class JsonName {
+    public static final String METADATA = "metadata";
+    public static final String PAGES = "pages";
+    public static final String PAGE = "page";
+    public static final String WIDTH = "width";
+    public static final String HEIGHT = "height";
+    public static final String HAS_TABLES = "has_tables";
+    public static final String TABLE_COUNT = "table_count";
+    public static final String FILE_NAME_SNAKE = "file_name";
+    public static final String FILE_SIZE = "file_size";
+    public static final String TOTAL_PAGES = "total_pages";
+    public static final String EXTRACTION_METHOD = "extraction_method";
+    public static final String SUBJECT = "subject";
+    public static final String CREATOR = "creator";
+    public static final String PRODUCER = "producer";
+    public static final String CREATION_DATE_SNAKE = "creation_date";
+    public static final String MODIFICATION_DATE_SNAKE = "modification_date";
     public static final String PAGE_NUMBER = "page number";
     public static final String LEVEL = "level";
     public static final String BOUNDING_BOX = "bounding box";

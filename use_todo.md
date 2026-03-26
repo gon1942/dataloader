@@ -89,8 +89,8 @@ opendataloader-pdf --help | rg 'image-description'
 
 ## command -----------
 
-opendataloader-pdf -f markdown,json,html,pdf --reading-order xycut  -o ./tmp/odl-xycut/img1  testfile/img1.pdf 
+opendataloader-pdf -f markdown,json,html,pdf --image-description  --reading-order xycut  -o ./tmp/odl-xycut2/input1  testfile/input1.pdf 
 
-opendataloader-pdf -f json,markdown,html --image-description testfile/img1.pdf -o ./tmp/odl-img/img1
+opendataloader-pdf -f json,markdown,html --image-description -o ./tmp/odl-img/t1 testfile/ㅑㅞㅕㅅ1.pdf 
 
 opendataloader-pdf testfile/img1.pdf -o ./tmp/odl-img/img1 -f json,markdown,html --image-description --image-description-language en

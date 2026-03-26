@@ -20,17 +20,12 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import org.opendataloader.pdf.containers.StaticLayoutContainers;
-import org.verapdf.as.ASAtom;
-import org.verapdf.cos.COSDictionary;
-import org.verapdf.cos.COSObjType;
-import org.verapdf.cos.COSObject;
-import org.verapdf.cos.COSTrailer;
-import org.verapdf.gf.model.impl.cos.GFCosInfo;
-import org.verapdf.pd.PDDocument;
-import org.verapdf.tools.StaticResources;
 import org.verapdf.wcag.algorithms.entities.IObject;
 import org.verapdf.wcag.algorithms.entities.content.LineArtChunk;
 import org.verapdf.wcag.algorithms.semanticalgorithms.containers.StaticContainers;
+import org.opendataloader.pdf.utils.DocumentMetadataUtils;
+import org.opendataloader.pdf.utils.DocumentMetadataUtils.DocumentMetadata;
+import org.opendataloader.pdf.utils.DocumentMetadataUtils.PageMetadata;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,7 +47,7 @@ public class JsonWriter {
         String jsonFileName = outputFolder + File.separator + inputPDF.getName().substring(0, inputPDF.getName().length() - 3) + "json";
         try (JsonGenerator jsonGenerator = getJsonGenerator(jsonFileName)) {
             jsonGenerator.writeStartObject();
-            writeDocumentInfo(jsonGenerator, inputPDF.getName());
+            writeDocumentInfo(jsonGenerator, inputPDF, contents);
             jsonGenerator.writeArrayFieldStart(JsonName.KIDS);
             for (int pageNumber = 0; pageNumber < StaticContainers.getDocument().getNumberOfPages(); pageNumber++) {
                 for (IObject content : contents.get(pageNumber)) {
@@ -70,20 +65,67 @@ public class JsonWriter {
         }
     }
 
-    private static void writeDocumentInfo(JsonGenerator generator, String pdfName) throws IOException {
-        PDDocument document = StaticResources.getDocument();
-        generator.writeStringField(JsonName.FILE_NAME, pdfName);
-        generator.writeNumberField(JsonName.NUMBER_OF_PAGES, document.getNumberOfPages());
-        COSTrailer trailer = document.getDocument().getTrailer();
-        COSObject object = trailer.getKey(ASAtom.INFO);
-        GFCosInfo info = new GFCosInfo((COSDictionary)
-                (object != null && object.getType() == COSObjType.COS_DICT ?
-                        object.getDirectBase() : COSDictionary.construct().get()));
-        generator.writeStringField(JsonName.AUTHOR, info.getAuthor() != null ? info.getAuthor() : info.getXMPCreator());
-        generator.writeStringField(JsonName.TITLE, info.getTitle() != null ? info.getTitle() : info.getXMPTitle());
-        generator.writeStringField(JsonName.CREATION_DATE, info.getCreationDate() != null ?
-                info.getCreationDate() : info.getXMPCreateDate());
-        generator.writeStringField(JsonName.MODIFICATION_DATE, info.getModDate() != null ?
-                info.getModDate() : info.getXMPModifyDate());
+    private static void writeDocumentInfo(JsonGenerator generator, File inputPDF, List<List<IObject>> contents) throws IOException {
+        DocumentMetadata metadata = DocumentMetadataUtils.getDocumentMetadata(inputPDF, contents);
+        List<PageMetadata> pageMetadata = DocumentMetadataUtils.getPageMetadata(contents);
+
+        generator.writeStringField(JsonName.FILE_NAME, metadata.getFileName());
+        generator.writeNumberField(JsonName.NUMBER_OF_PAGES, metadata.getTotalPages());
+        writeNullableStringField(generator, JsonName.AUTHOR, metadata.getAuthor());
+        writeNullableStringField(generator, JsonName.TITLE, metadata.getTitle());
+        writeNullableStringField(generator, JsonName.CREATION_DATE, metadata.getCreationDate());
+        writeNullableStringField(generator, JsonName.MODIFICATION_DATE, metadata.getModificationDate());
+
+        writeMetadata(generator, metadata);
+        writePageMetadata(generator, pageMetadata);
+    }
+
+    private static void writeMetadata(JsonGenerator generator, DocumentMetadata metadata) throws IOException {
+        generator.writeObjectFieldStart(JsonName.METADATA);
+        generator.writeStringField(JsonName.SOURCE, metadata.getSource());
+        generator.writeStringField(JsonName.FILE_NAME_SNAKE, metadata.getFileName());
+        generator.writeNumberField(JsonName.FILE_SIZE, metadata.getFileSize());
+        generator.writeNumberField(JsonName.TOTAL_PAGES, metadata.getTotalPages());
+        generator.writeStringField(JsonName.EXTRACTION_METHOD, metadata.getExtractionMethod());
+        generator.writeBooleanField(JsonName.HAS_TABLES, metadata.isHasTables());
+        generator.writeNumberField(JsonName.TABLE_COUNT, metadata.getTableCount());
+        writeNullableStringField(generator, JsonName.TITLE, metadata.getTitle());
+        writeNullableStringField(generator, JsonName.AUTHOR, metadata.getAuthor());
+        writeNullableStringField(generator, JsonName.SUBJECT, metadata.getSubject());
+        writeNullableStringField(generator, JsonName.CREATOR, metadata.getCreator());
+        writeNullableStringField(generator, JsonName.PRODUCER, metadata.getProducer());
+        writeNullableStringField(generator, JsonName.CREATION_DATE_SNAKE, metadata.getCreationDate());
+        writeNullableStringField(generator, JsonName.MODIFICATION_DATE_SNAKE, metadata.getModificationDate());
+        generator.writeEndObject();
+    }
+
+    private static void writePageMetadata(JsonGenerator generator, List<PageMetadata> pageMetadata) throws IOException {
+        generator.writeArrayFieldStart(JsonName.PAGES);
+        for (PageMetadata page : pageMetadata) {
+            generator.writeStartObject();
+            generator.writeNumberField(JsonName.PAGE, page.getPage());
+            if (page.getWidth() != null) {
+                generator.writeNumberField(JsonName.WIDTH, page.getWidth());
+            } else {
+                generator.writeNullField(JsonName.WIDTH);
+            }
+            if (page.getHeight() != null) {
+                generator.writeNumberField(JsonName.HEIGHT, page.getHeight());
+            } else {
+                generator.writeNullField(JsonName.HEIGHT);
+            }
+            generator.writeBooleanField(JsonName.HAS_TABLES, page.isHasTables());
+            generator.writeNumberField(JsonName.TABLE_COUNT, page.getTableCount());
+            generator.writeEndObject();
+        }
+        generator.writeEndArray();
+    }
+
+    private static void writeNullableStringField(JsonGenerator generator, String fieldName, String value) throws IOException {
+        if (value == null) {
+            generator.writeNullField(fieldName);
+        } else {
+            generator.writeStringField(fieldName, value);
+        }
     }
 }

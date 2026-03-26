@@ -20,6 +20,7 @@ import org.verapdf.wcag.algorithms.entities.SemanticHeaderOrFooter;
 import org.verapdf.wcag.algorithms.entities.SemanticTextNode;
 import org.verapdf.wcag.algorithms.entities.content.ImageChunk;
 import org.verapdf.wcag.algorithms.entities.geometry.BoundingBox;
+import org.verapdf.wcag.algorithms.entities.lists.PDFList;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -87,7 +88,9 @@ public final class DominantImageTextFilterProcessor {
     }
 
     private static boolean isCoveredText(IObject content, BoundingBox dominantBox) {
-        if (!(content instanceof SemanticTextNode) && !(content instanceof SemanticHeaderOrFooter)) {
+        if (!(content instanceof SemanticTextNode)
+            && !(content instanceof SemanticHeaderOrFooter)
+            && !(content instanceof PDFList)) {
             return false;
         }
         BoundingBox contentBox = content.getBoundingBox();
