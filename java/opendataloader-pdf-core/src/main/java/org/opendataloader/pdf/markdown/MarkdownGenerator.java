@@ -188,14 +188,6 @@ public class MarkdownGenerator implements Closeable {
                         : "image " + picture.getPictureIndex();
                     String imageString = String.format(MarkdownSyntax.IMAGE_FORMAT, altText, imageSource);
                     markdownWriter.write(getCorrectMarkdownString(imageString));
-
-                    // Add caption as italic text below the image if description available
-                    if (picture.hasDescription()) {
-                        markdownWriter.write(MarkdownSyntax.DOUBLE_LINE_BREAK);
-                        String caption = picture.getDescription().replace("\n", " ").replace("\r", "");
-                        markdownWriter.write("*" + getCorrectMarkdownString(caption) + "*");
-                        markdownWriter.write(MarkdownSyntax.DOUBLE_LINE_BREAK);
-                    }
                 }
             }
         } catch (IOException e) {

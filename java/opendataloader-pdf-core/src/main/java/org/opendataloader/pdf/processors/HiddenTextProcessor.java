@@ -22,12 +22,15 @@ import org.verapdf.wcag.algorithms.semanticalgorithms.consumers.ContrastRatioCon
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Processor for detecting hidden text in PDF documents.
  * Identifies text with low contrast ratio against the background.
  */
 public class HiddenTextProcessor {
+    private static final Logger LOGGER = Logger.getLogger(HiddenTextProcessor.class.getCanonicalName());
     private static final double MIN_CONTRAST_RATIO = 1.2d;
 
     /**
@@ -49,7 +52,13 @@ public class HiddenTextProcessor {
         for (IObject content : contents) {
             if (content instanceof TextChunk) {
                 TextChunk textChunk = (TextChunk) content;
-                contrastRatioConsumer.calculateContrastRatio(textChunk);
+                try {
+                    contrastRatioConsumer.calculateContrastRatio(textChunk);
+                } catch (Throwable t) {
+                    LOGGER.log(Level.WARNING, "Hidden text detection disabled for this document: " + t.getMessage());
+                    StaticLayoutContainers.closeContrastRatioConsumer();
+                    return contents;
+                }
                 if (textChunk.getContrastRatio() < MIN_CONTRAST_RATIO) {
                     if (!isFilterHiddenText) {
                         textChunk.setHiddenText(true);

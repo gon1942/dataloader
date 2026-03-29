@@ -83,8 +83,9 @@ public class StaticLayoutContainers {
             if (contrastRatioConsumer.get() == null && !isContrastRatioConsumerFailedToCreate.get()) {
                 contrastRatioConsumer.set(new ContrastRatioConsumer(sourcePdfPath, password, enableAntialias, imagePixelSize));
             }
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Error setting contrast ratio consumer: " + e.getMessage());
+        } catch (Throwable t) {
+            LOGGER.log(Level.WARNING, "Error setting contrast ratio consumer: " + t.getMessage());
+            closeContrastRatioConsumer();
             isContrastRatioConsumerFailedToCreate.set(true);
         }
         return contrastRatioConsumer.get();

@@ -66,8 +66,10 @@ class JsonMetadataIntegrationTest {
         assertEquals(samplePdf.length(), metadata.get("file_size").asLong());
         assertEquals(root.get("number of pages").asInt(), metadata.get("total_pages").asInt());
         assertEquals("opendataloader-pdf", metadata.get("extraction_method").asText());
-        assertTrue(root.get("creation date").asText().contains("T"));
-        assertTrue(metadata.get("creation_date").asText().contains("T"));
+        assertTrue(root.get("creation date").isNull());
+        assertTrue(metadata.get("creation_date").isNull());
+        assertTrue(root.get("modification date").asText().contains("T"));
+        assertTrue(metadata.get("modification_date").asText().contains("T"));
         assertTrue(metadata.has("has_tables"));
         assertTrue(metadata.has("table_count"));
 

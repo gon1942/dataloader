@@ -17,7 +17,7 @@ def run_jar(args: List[str], quiet: bool = False) -> str:
         # Access the embedded JAR inside the package
         jar_ref = resources.files("opendataloader_pdf").joinpath("jar", _JAR_NAME)
         with resources.as_file(jar_ref) as jar_path:
-            command = ["java", "-jar", str(jar_path), *args]
+            command = ["java", "-Djava.awt.headless=true", "-jar", str(jar_path), *args]
 
             if quiet:
                 # Quiet mode → capture all output

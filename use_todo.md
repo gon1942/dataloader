@@ -94,3 +94,93 @@ opendataloader-pdf -f markdown,json,html,pdf --image-description  --reading-orde
 opendataloader-pdf -f json,markdown,html --image-description -o ./tmp/odl-img/t1 testfile/ㅑㅞㅕㅅ1.pdf 
 
 opendataloader-pdf testfile/img1.pdf -o ./tmp/odl-img/img1 -f json,markdown,html --image-description --image-description-language en
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## -----------
+
+
+기본 사용법은 아래입니다.
+
+opendataloader-pdf INPUT.pdf -o OUTPUT_DIR -f json,markdown,html
+예:
+
+opendataloader-pdf ./testfile/계측_4p.pdf -o ./tmp/odl/계측_4p.pdf -f json,markdown,html
+자주 쓰는 옵션:
+
+-o, --output-folder: 출력 폴더
+-f, --format: 출력 포맷
+json
+markdown
+html
+text
+쉼표로 여러 개 지정 가능
+--image-description: 비hybrid 모드 이미지 설명 생성
+--image-description-language ko|en: 설명 언어 지정
+--pages 1,3,5 또는 --pages 1-3: 특정 페이지만 처리
+--include-header-footer: 헤더/푸터 포함
+--embed-images: md/html에 이미지 파일 대신 base64 포함
+예시:
+
+opendataloader-pdf sample.pdf -o out -f json
+opendataloader-pdf sample.pdf -o out -f markdown,html --image-description
+opendataloader-pdf sample.pdf -o out -f json --pages 1-3
+도움말 확인:
+
+opendataloader-pdf --help
+현재 환경에서 이미지 설명까지 포함한 대표 예시는:
+
+JAVA_TOOL_OPTIONS=-Djava.awt.headless=true \
+opendataloader-pdf ./testfile/계측_4p.pdf \
+  -o ./tmp/odl/계측_4p.pdf \
+  -f json,markdown,html \
+  --image-description
+원하면 내가 이 저장소 기준으로 use.md나 README에 실행 예시까지 정리해서 문서로 넣겠습니다.
+
+
+## --------------------------------------------------------------------#
+## ----------운영환경 설치 ----------------------
+## --------------------------------------------------------------------#
+source ~/.airun_venv/bin/activate
+./scripts/build-all.sh 0.0.0
+
+
+또는 빌드된 wheel을 운영 venv에 직접 설치
+~/.airun_venv/bin/pip install /home/gon/work/ttt4/dataloader/python/opendataloader-pdf/dist/opendataloader_pdf-0.0.0-py3-none-any.whl
+<!-- ~/.airun_venv/bin/pip show opendataloader-pdf -->
+
+
+
+## 반영 문제.
+해결 방법은 utils.py (line 6841)에서 JSON이 dict일 경우 kids를 재귀 순회해서 type과 page number를 집계하도록 바꾸는 것입니다.
+
+원하면 내가 /home/gon/work/airun_proj/git/airun/utils.py를 바로 패치해서 이 로그가 실제 값으로 나오게 수정하겠습니다.
+
+
+문서를 업로드하면 업로드한 경로에  업로드한 파일이 존재하고 문서 임베딩을 수행하면 .extracts/<업로드파일>이 생겨 이안에 이미지가 저장된다. 
+
+
+
+ ls 계측_4p.pdf  계측_5p.pdf
+ls .extracts/계측_4p
+ ls .extracts/계측_4p                                   ✔  at 15:56:10  
+3ba461fc_page_1_1.png  3ba461fc_page_1_3.jpg  3ba461fc_page_1_5.jpg
+3ba461fc_page_1_2.png  3ba461fc_page_1_4.jpg
+
+
+
+opendataloader-pdf를 파서로 사용하는 경우 동일하게 .extracts/문서/ md, json을 저장하도록 할 수 있나?
+

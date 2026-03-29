@@ -56,6 +56,9 @@ public final class DocumentMetadataUtils {
         PDDocument document = StaticResources.getDocument();
         GFCosInfo info = getDocumentInfo(document);
         int tableCount = countTablesInDocument(contents);
+        String creationDate = formatDateIso(firstNonBlank(info.getCreationDate(), info.getXMPCreateDate()));
+        String modificationDate = formatDateIso(firstNonBlank(
+            info.getModDate(), info.getXMPModifyDate(), info.getCreationDate(), info.getXMPCreateDate()));
         return new DocumentMetadata(
             inputPdf.getAbsolutePath(),
             inputPdf.getName(),
@@ -69,8 +72,8 @@ public final class DocumentMetadataUtils {
             firstNonBlank(info.getSubject(), info.getXMPDescription()),
             firstNonBlank(info.getCreator(), info.getXMPCreatorTool()),
             firstNonBlank(info.getProducer(), info.getXMPProducer()),
-            formatDateIso(firstNonBlank(info.getCreationDate(), info.getXMPCreateDate())),
-            formatDateIso(firstNonBlank(info.getModDate(), info.getXMPModifyDate()))
+            null,
+            modificationDate != null ? modificationDate : creationDate
         );
     }
 
