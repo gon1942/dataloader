@@ -414,6 +414,20 @@ java -Djava.awt.headless=true -jar java/opendataloader-pdf-cli/target/opendatalo
   testfile/input10.pdf
 
 
+
+
+java -Djava.awt.headless=true -jar /home/gon/.airun_venv/lib/python3.12/site-packages/opendataloader_pdf/jar/opendataloader-pdf-cli.jar \
+  -f html,json \
+  -o ./tmp/odl-xycut/input10-fix2 \
+  testfile/input10.pdf
+
+
+❌ OpenDataLoader-PDF 처리 실패, PyPDF2 방식으로 전환: Command '['java', '-Djava.awt.headless=true', '-jar', '/home/gon/.airun_venv/lib/python3.12/site-packages/opendataloader_pdf/jar/opendataloader-pdf-cli.jar', '/home/gon/work/airun_proj/airun_rag_docs/admin/a1.pdf', '--output-dir', '/home/gon/work/airun_proj/airun_rag_docs/admin/.extracts/a1', '--format', 'markdown-with-images,json,html', '--quiet', '--image-output', '.external', '--image-dir', '/home/gon/work/airun_proj/airun_rag_docs/admin/.extracts/a1', '--image-description', '--image-description-url', 'https://app.hamonize.com/gemma4/v1/chat/completions', '--image-description-model', 'gemma-4', '--image-description-language', 'ko', '--image-description-timeout', '120000', '--include-header-footer']' returned non-zero exit status 2.
+📄 PyPDF2를 사용하여 PDF 처리 시작: /home/gon/work/airun_proj/airun_rag_docs/admin/a1.pdf, useOcr: False
+
+
+
+
 opendataloader-pdf -f markdown,json,html,pdf --reading-order xycut  -o ./tmp/odl-xycut/input10  testfile/input10.pdf
 
 

@@ -34,6 +34,10 @@ import java.time.Duration;
  * Minimal Ollama-compatible client for image description requests.
  */
 public class OllamaImageDescriptionClient {
+    private static final String OPENAI_CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
+    private static final String[] FINAL_DESCRIPTION_MARKERS = {
+        "이 이미지는", "이 그림은", "본 이미지는", "이 인포그래픽은", "해당 이미지는"
+    };
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final Config config;
@@ -47,16 +51,7 @@ public class OllamaImageDescriptionClient {
     }
 
     public String describeImage(String imageBase64) throws IOException, InterruptedException {
-        ObjectNode root = objectMapper.createObjectNode();
-        root.put("model", config.getImageDescriptionModel());
-        root.put("stream", false);
-
-        ArrayNode messages = root.putArray("messages");
-        ObjectNode message = messages.addObject();
-        message.put("role", "user");
-        message.put("content", buildPrompt());
-        ArrayNode images = message.putArray("images");
-        images.add(imageBase64);
+        ObjectNode root = buildRequestBody(imageBase64);
 
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create(config.getImageDescriptionUrl()))
@@ -73,6 +68,54 @@ public class OllamaImageDescriptionClient {
         }
 
         JsonNode json = objectMapper.readTree(response.body());
+        if (isOpenAICompatibleUrl()) {
+            return sanitizeDescription(extractOpenAICompatibleContent(json));
+        }
+        return sanitizeDescription(extractOllamaCompatibleContent(json));
+    }
+
+    private ObjectNode buildRequestBody(String imageBase64) {
+        return isOpenAICompatibleUrl()
+            ? buildOpenAICompatibleRequestBody(imageBase64)
+            : buildOllamaCompatibleRequestBody(imageBase64);
+    }
+
+    private ObjectNode buildOllamaCompatibleRequestBody(String imageBase64) {
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("model", config.getImageDescriptionModel());
+        root.put("stream", false);
+
+        ArrayNode messages = root.putArray("messages");
+        ObjectNode message = messages.addObject();
+        message.put("role", "user");
+        message.put("content", buildPrompt());
+        ArrayNode images = message.putArray("images");
+        images.add(imageBase64);
+        return root;
+    }
+
+    private ObjectNode buildOpenAICompatibleRequestBody(String imageBase64) {
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("model", config.getImageDescriptionModel());
+        root.put("stream", false);
+
+        ArrayNode messages = root.putArray("messages");
+        ObjectNode message = messages.addObject();
+        message.put("role", "user");
+
+        ArrayNode content = message.putArray("content");
+        ObjectNode textPart = content.addObject();
+        textPart.put("type", "text");
+        textPart.put("text", buildPrompt());
+
+        ObjectNode imagePart = content.addObject();
+        imagePart.put("type", "image_url");
+        ObjectNode imageUrl = imagePart.putObject("image_url");
+        imageUrl.put("url", "data:image/png;base64," + imageBase64);
+        return root;
+    }
+
+    private String extractOllamaCompatibleContent(JsonNode json) {
         JsonNode messageNode = json.get("message");
         if (messageNode == null || !messageNode.isObject()) {
             return null;
@@ -84,6 +127,95 @@ public class OllamaImageDescriptionClient {
 
         String content = contentNode.asText();
         return content == null ? null : content.trim();
+    }
+
+    private String extractOpenAICompatibleContent(JsonNode json) {
+        JsonNode choicesNode = json.get("choices");
+        if (choicesNode == null || !choicesNode.isArray() || choicesNode.isEmpty()) {
+            return null;
+        }
+
+        JsonNode messageNode = choicesNode.get(0).get("message");
+        if (messageNode == null || !messageNode.isObject()) {
+            return null;
+        }
+
+        JsonNode contentNode = messageNode.get("content");
+        if (contentNode == null || contentNode.isNull()) {
+            return null;
+        }
+
+        if (contentNode.isTextual()) {
+            String content = contentNode.asText();
+            return content == null ? null : content.trim();
+        }
+
+        if (contentNode.isArray()) {
+            StringBuilder builder = new StringBuilder();
+            for (JsonNode item : contentNode) {
+                if (!item.isObject()) {
+                    continue;
+                }
+                JsonNode typeNode = item.get("type");
+                if (typeNode == null || !typeNode.isTextual()) {
+                    continue;
+                }
+                if (!"text".equals(typeNode.asText())) {
+                    continue;
+                }
+                JsonNode textNode = item.get("text");
+                if (textNode == null || textNode.isNull()) {
+                    continue;
+                }
+                String text = textNode.asText();
+                if (text == null || text.isBlank()) {
+                    continue;
+                }
+                if (builder.length() > 0) {
+                    builder.append('\n');
+                }
+                builder.append(text.trim());
+            }
+            return builder.length() == 0 ? null : builder.toString();
+        }
+
+        return null;
+    }
+
+    private boolean isOpenAICompatibleUrl() {
+        String url = config.getImageDescriptionUrl();
+        return url != null && url.contains(OPENAI_CHAT_COMPLETIONS_PATH);
+    }
+
+    private String sanitizeDescription(String content) {
+        if (content == null) {
+            return null;
+        }
+
+        String normalized = content.replace("\r\n", "\n").replace('\r', '\n').trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+
+        int finalDescriptionStart = -1;
+        for (String marker : FINAL_DESCRIPTION_MARKERS) {
+            int markerIndex = normalized.lastIndexOf(marker);
+            if (markerIndex > finalDescriptionStart) {
+                finalDescriptionStart = markerIndex;
+            }
+        }
+        if (finalDescriptionStart >= 0) {
+            normalized = normalized.substring(finalDescriptionStart).trim();
+        }
+
+        if (normalized.startsWith("thought")) {
+            int firstNewline = normalized.indexOf('\n');
+            if (firstNewline >= 0) {
+                normalized = normalized.substring(firstNewline + 1).trim();
+            }
+        }
+
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private String buildPrompt() {

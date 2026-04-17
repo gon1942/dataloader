@@ -98,16 +98,45 @@ opendataloader-pdf testfile/img1.pdf -o ./tmp/odl-img/img1 -f json,markdown,html
 
 
 
+opendataloader-pdf -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url https://app.hamonize.com/gemma4/v1/chat/completions \
+  --image-description-model hamonize:latest \
+  /home/gon/Documents/계측_4p.pdf \
+  -o ./tmp/odl-a1----12
+
+
+opendataloader-pdf -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url https://app.hamonize.com/gemma4/api/chat \
+  --image-description-model airun-vision:latest \
+  '/home/gon/Documents/한수원테스트자료/001/rag참고자료/교재/1. 교육 과정소개 및 생활안내.pdf' \
+  --image-description-model hamonize:latest \
+  -o ./tmp/odl-a1----1
 
 
 
 
+opendataloader-pdf -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url http://192.168.0.203:11435/api/chat \
+  --image-description-model hamonize:latest \
+  --image-description-timeout 120000 \
+  /home/gon/Documents/계측_4p.pdf \
+  -o ./tmp/odl-a1----12
 
 
 
 
+opendataloader-pdf -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url https://app.hamonize.com/gemma4/v1/chat/completions \
+  --image-description-model hamonize-v2 \
+  --image-description-timeout 120000 \
+  '/home/gon/work/airun_proj/airun_rag_docs/admin/지진행동요령v1.pdf' \
+  -o ./tmp/odl-a1----123
 
-
+ cp  python/opendataloader-pdf/dist/opendataloader_pdf-0.0.0-py3-none-any.whl  /home/gon/work/airun_proj/gemma2/airun/install_files/python-wheels   
 
 
 ## -----------
