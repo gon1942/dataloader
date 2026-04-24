@@ -26,8 +26,8 @@ cp "$ROOT_DIR/README.md" "$PACKAGE_DIR/README.md"
 uv build --wheel
 
 # Install and run tests
-uv sync
-uv run pytest tests -v -s
+uv sync --group dev
+uv run python -m pytest tests -v -s
 
 if [ "$SKIP_INSTALL" = "true" ]; then
     echo "Build completed successfully. Installation skipped."

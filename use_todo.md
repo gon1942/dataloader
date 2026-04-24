@@ -299,5 +299,5 @@ java -Djava.awt.headless=true -jar /home/gon/work/opendataloader_proj/dataloader
   --image-description-url https://app.hamonize.com/gemma4/v1/chat/completions \
   --image-description-model hamonize-v2 \
   --image-description-timeout 120000 \
-  './testfile/input/input4.pdf' \
-  -o ./tmp/input-4
+  './testfile/input/input3.pdf' \
+  -o ./tmp/input-3

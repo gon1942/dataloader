@@ -213,6 +213,8 @@ public class DocumentProcessor {
             logPageContents("After dominant image table-cell image filtering", pageNumber, pageContents);
             pageContents = DominantImageTextFilterProcessor.filterCoveredText(pageContents, getPageBoundingBox(pageNumber));
             logPageContents("After dominant image text filtering", pageNumber, pageContents);
+            pageContents = UnderlineFootnoteTableFilterProcessor.filterFootnoteTables(pageContents, getPageBoundingBox(pageNumber));
+            logPageContents("After underline footnote table filtering", pageNumber, pageContents);
             contents.set(pageNumber, pageContents);
         }
         LOGGER.log(Level.INFO, "Reconciling cross-page semantic structures");
