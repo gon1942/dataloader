@@ -304,7 +304,7 @@ def create_app(
     app = FastAPI(
         title="Docling Fast Server",
         description="Fast PDF conversion using docling SDK with singleton pattern",
-        version="1.0.0",
+        version="1.0.1",
         lifespan=lifespan,
     )
 

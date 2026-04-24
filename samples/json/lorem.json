@@ -6,7 +6,7 @@
   "creation date" : null,
   "modification date" : "2025-10-10T11:25:01",
   "metadata" : {
-    "source" : "/home/gon/work/ttt4/dataloader/java/opendataloader-pdf-core/../../samples/pdf/lorem.pdf",
+    "source" : "/home/gon/work/opendataloader_proj/dataloader_airun/java/opendataloader-pdf-core/../../samples/pdf/lorem.pdf",
     "file_name" : "lorem.pdf",
     "file_size" : 10538,
     "total_pages" : 1,

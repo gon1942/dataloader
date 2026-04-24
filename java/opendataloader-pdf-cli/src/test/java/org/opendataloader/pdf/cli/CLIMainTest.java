@@ -108,4 +108,27 @@ class CLIMainTest {
         assertNotEquals(0, exitCode,
             "Exit code must be non-zero when input file does not exist");
     }
+
+    @Test
+    void testTopLevelUnsupportedFileReturnsNonZeroExitCode() throws IOException {
+        Path testText = tempDir.resolve("test.txt");
+        Files.writeString(testText, "not supported");
+
+        int exitCode = CLIMain.run(new String[]{testText.toString()});
+
+        assertNotEquals(0, exitCode,
+            "Exit code must be non-zero when top-level input format is unsupported");
+    }
+
+    @Test
+    void testDirectoryWithOnlyNonPdfFilesReturnsZeroExitCode() throws IOException {
+        Path dir = tempDir.resolve("docs");
+        Files.createDirectory(dir);
+        Files.writeString(dir.resolve("note.txt"), "skip me");
+
+        int exitCode = CLIMain.run(new String[]{dir.toString()});
+
+        assertEquals(0, exitCode,
+            "Non-PDF files discovered while walking a directory should still be skipped");
+    }
 }

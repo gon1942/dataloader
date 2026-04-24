@@ -21,7 +21,13 @@ import org.opendataloader.pdf.api.OpenDataLoaderPDF;
 import org.opendataloader.pdf.containers.StaticLayoutContainers;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,6 +35,8 @@ import java.util.logging.Logger;
 public class CLIMain {
 
     private static final Logger LOGGER = Logger.getLogger(CLIMain.class.getCanonicalName());
+    private static final Set<String> OFFICE_EXTENSIONS = new HashSet<>(
+        Arrays.asList(".doc", ".docx", ".hwp", ".hwpx"));
 
     private static final String HELP = "[options] <INPUT FILE OR FOLDER>...\n Options:";
 
@@ -83,7 +91,7 @@ public class CLIMain {
         boolean hasFailure = false;
         try {
             for (String argument : arguments) {
-                if (!processPath(new File(argument), config)) {
+                if (!processPath(new File(argument), config, true)) {
                     hasFailure = true;
                 }
             }
@@ -114,7 +122,7 @@ public class CLIMain {
     /**
      * Processes a file or directory, returning true if all files succeeded.
      */
-    private static boolean processPath(File file, Config config) {
+    private static boolean processPath(File file, Config config, boolean topLevelInput) {
         if (!file.exists()) {
             LOGGER.log(Level.WARNING, "File or folder " + file.getAbsolutePath() + " not found.");
             return false;
@@ -122,7 +130,7 @@ public class CLIMain {
         if (file.isDirectory()) {
             return processDirectory(file, config);
         } else if (file.isFile()) {
-            return processFile(file, config);
+            return processFile(file, config, topLevelInput);
         }
         return true;
     }
@@ -135,7 +143,7 @@ public class CLIMain {
         }
         boolean allSucceeded = true;
         for (File child : children) {
-            if (!processPath(child, config)) {
+            if (!processPath(child, config, false)) {
                 allSucceeded = false;
             }
         }
@@ -147,13 +155,36 @@ public class CLIMain {
      *
      * @return true if processing succeeded, false if an error occurred.
      */
-    private static boolean processFile(File file, Config config) {
+    private static boolean processFile(File file, Config config, boolean topLevelInput) {
+        File fileToProcess = file;
+        Path tempDir = null;
+
         if (!isPdfFile(file)) {
-            LOGGER.log(Level.FINE, "Skipping non-PDF file " + file.getAbsolutePath());
-            return true;
+            if (isOfficeFile(file)) {
+                try {
+                    tempDir = Files.createTempDirectory("opendataloader-office-");
+                    fileToProcess = convertOfficeToPdf(file, tempDir);
+                } catch (IOException | InterruptedException exception) {
+                    if (exception instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                    LOGGER.log(Level.WARNING, "Failed to convert document " + file.getAbsolutePath()
+                        + " to PDF: " + exception.getMessage());
+                    return false;
+                }
+            } else {
+                if (topLevelInput) {
+                    LOGGER.log(Level.WARNING, "Unsupported input file " + file.getAbsolutePath()
+                        + ". Supported inputs: PDF, DOC, DOCX, HWP, HWPX.");
+                    return false;
+                }
+                LOGGER.log(Level.FINE, "Skipping unsupported file " + file.getAbsolutePath());
+                return true;
+            }
         }
+
         try {
-            OpenDataLoaderPDF.processFile(file.getAbsolutePath(), config);
+            OpenDataLoaderPDF.processFile(fileToProcess.getAbsolutePath(), config);
             return true;
         } catch (Exception exception) {
             LOGGER.log(Level.SEVERE, "Exception during processing file " + file.getAbsolutePath() + ": " +
@@ -161,6 +192,7 @@ public class CLIMain {
             return false;
         } finally {
             StaticLayoutContainers.closeContrastRatioConsumer();
+            cleanupTemporaryDirectory(tempDir);
         }
     }
 
@@ -170,5 +202,65 @@ public class CLIMain {
         }
         String name = file.getName();
         return name.toLowerCase(Locale.ROOT).endsWith(".pdf");
+    }
+
+    private static boolean isOfficeFile(File file) {
+        if (!file.isFile()) {
+            return false;
+        }
+        String name = file.getName().toLowerCase(Locale.ROOT);
+        for (String extension : OFFICE_EXTENSIONS) {
+            if (name.endsWith(extension)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static File convertOfficeToPdf(File inputFile, Path tempDir) throws IOException, InterruptedException {
+        Process process = new ProcessBuilder(
+            "soffice",
+            "--headless",
+            "--convert-to", "pdf",
+            "--outdir", tempDir.toString(),
+            inputFile.getAbsolutePath()
+        ).redirectErrorStream(true).start();
+
+        String output = new String(process.getInputStream().readAllBytes());
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new IOException("LibreOffice exited with code " + exitCode + ": " + output.trim());
+        }
+
+        String baseName = inputFile.getName();
+        int extensionIndex = baseName.lastIndexOf('.');
+        if (extensionIndex >= 0) {
+            baseName = baseName.substring(0, extensionIndex);
+        }
+        File convertedFile = tempDir.resolve(baseName + ".pdf").toFile();
+        if (!convertedFile.isFile()) {
+            throw new IOException("Converted PDF not found at " + convertedFile.getAbsolutePath()
+                + ". Converter output: " + output.trim());
+        }
+        return convertedFile;
+    }
+
+    private static void cleanupTemporaryDirectory(Path tempDir) {
+        if (tempDir == null) {
+            return;
+        }
+        try {
+            Files.walk(tempDir)
+                .sorted((left, right) -> right.getNameCount() - left.getNameCount())
+                .forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (IOException exception) {
+                        LOGGER.log(Level.FINE, "Unable to delete temporary path " + path + ": " + exception.getMessage());
+                    }
+                });
+        } catch (IOException exception) {
+            LOGGER.log(Level.FINE, "Unable to clean up temporary directory " + tempDir + ": " + exception.getMessage());
+        }
     }
 }

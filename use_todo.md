@@ -134,9 +134,59 @@ opendataloader-pdf -f pdf,json,markdown,html \
   --image-description-model hamonize-v2 \
   --image-description-timeout 120000 \
   '/home/gon/work/airun_proj/airun_rag_docs/admin/지진행동요령v1.pdf' \
-  -o ./tmp/odl-a1----123
+  -o ./tmp/pdf-a1----123
 
  cp  python/opendataloader-pdf/dist/opendataloader_pdf-0.0.0-py3-none-any.whl  /home/gon/work/airun_proj/gemma2/airun/install_files/python-wheels   
+
+
+
+opendataloader-pdf -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url https://app.hamonize.com/gemma4/v1/chat/completions \
+  --image-description-model hamonize-v2 \
+  --image-description-timeout 120000 \
+  '/home/gon/Documents/0000/doc/호랑이서식지에대해서.doc' \
+  -o ./tmp/doc-a1----123
+
+
+mkdir -p ./tmp/office-pdf
+soffice --headless --convert-to pdf --outdir ./tmp/office-pdf \
+  '/home/gon/Documents/0000/doc/호랑이서식지에대해서.doc'
+
+opendataloader-pdf -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url http://211.115.68.5:11407/v1/chat/completions \
+  --image-description-model hamonize-v2 \
+  --image-description-timeout 120000 \
+  './tmp/office-pdf/호랑이서식지에대해서.pdf' \
+  -o ./tmp/doc-a1----123
+
+
+
+
+
+
+
+
+java -Djava.awt.headless=true -jar /home/gon/work/ttt4/dataloader/tmp/releases/1.1.0/opendataloader-pdf-cli-1.1.0.jar \
+  -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url https://app.hamonize.com/gemma4/v1/chat/completions \
+  --image-description-model hamonize-v2 \
+  --image-description-timeout 120000 \
+  '/home/gon/Documents/0000/hwp/어린이날.hwpx' \
+  -o ./tmp/hwp-a1----1
+
+
+java -Djava.awt.headless=true -jar /home/gon/work/ttt4/dataloader/tmp/releases/1.1.0/opendataloader-pdf-cli-1.1.0.jar \
+  -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url https://app.hamonize.com/gemma4/v1/chat/completions \
+  --image-description-model hamonize-v2 \
+  --image-description-timeout 120000 \
+  '/home/gon/Documents/0000/doc/호랑이서식지에대해서.doc' \
+  -o ./tmp/doc-a1----1
+
 
 
 ## -----------
@@ -213,3 +263,41 @@ ls .extracts/계측_4p
 
 opendataloader-pdf를 파서로 사용하는 경우 동일하게 .extracts/문서/ md, json을 저장하도록 할 수 있나?
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ------------------------
+
+
+
+
+java -Djava.awt.headless=true -jar /home/gon/work/opendataloader_proj/dataloader_airun/tmp/releases/1.1.0/opendataloader-pdf-cli-1.1.0.jar \
+  -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url https://app.hamonize.com/gemma4/v1/chat/completions \
+  --image-description-model hamonize-v2 \
+  --image-description-timeout 120000 \
+  '/home/gon/work/opendataloader_proj/testfile/img/a1.pdf' \
+  -o ./tmp/img-1
+
+
+
+java -Djava.awt.headless=true -jar /home/gon/work/opendataloader_proj/dataloader_airun/tmp/releases/1.1.0/opendataloader-pdf-cli-1.1.0.jar \
+  -f pdf,json,markdown,html \
+  --image-description \
+  --image-description-url https://app.hamonize.com/gemma4/v1/chat/completions \
+  --image-description-model hamonize-v2 \
+  --image-description-timeout 120000 \
+  './testfile/input/input4.pdf' \
+  -o ./tmp/input-4
