@@ -28,7 +28,15 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * Minimal Ollama-compatible client for image description requests.
@@ -38,16 +46,37 @@ public class OllamaImageDescriptionClient {
     private static final String[] FINAL_DESCRIPTION_MARKERS = {
         "이 이미지는", "이 그림은", "본 이미지는", "이 인포그래픽은", "해당 이미지는"
     };
+    private static final Logger LOG = Logger.getLogger(OllamaImageDescriptionClient.class.getName());
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final Config config;
 
     public OllamaImageDescriptionClient(Config config) {
         this.config = config;
-        this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofMillis(config.getImageDescriptionTimeoutMs()))
-            .build();
+        HttpClient.Builder builder = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofMillis(config.getImageDescriptionTimeoutMs()));
+        if (config.isImageDescriptionInsecure()) {
+            LOG.log(Level.WARNING, "TLS certificate verification is DISABLED for image description API. "
+                + "Use only with trusted servers.");
+            builder.sslContext(createTrustAllContext());
+        }
+        this.httpClient = builder.build();
         this.objectMapper = ObjectMapperHolder.getObjectMapper();
+    }
+
+    private static SSLContext createTrustAllContext() {
+        TrustManager[] trustAll = new TrustManager[]{ new X509TrustManager() {
+            public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+            public void checkClientTrusted(X509Certificate[] certs, String authType) { }
+            public void checkServerTrusted(X509Certificate[] certs, String authType) { }
+        }};
+        try {
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, trustAll, new SecureRandom());
+            return sc;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create TrustAll SSLContext", e);
+        }
     }
 
     public String describeImage(String imageBase64) throws IOException, InterruptedException {

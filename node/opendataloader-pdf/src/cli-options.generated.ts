@@ -30,6 +30,7 @@ export function registerCliOptions(program: Command): void {
   program.option('--image-description-prompt <value>', 'Custom prompt for image description');
   program.option('--image-description-language <value>', 'Language for generated image descriptions. Default: ko');
   program.option('--image-description-timeout <value>', 'Image description request timeout in milliseconds. Default: 30000');
+  program.option('--image-description-insecure', 'Disable TLS certificate verification for image description API requests (use only with trusted servers)');
   program.option('--pages <value>', 'Pages to extract (e.g., "1,3,5-7"). Default: all pages');
   program.option('--include-header-footer', 'Include page headers and footers in output');
   program.option('--detect-strikethrough', 'Detect strikethrough text and wrap with ~~ in Markdown output (experimental)');

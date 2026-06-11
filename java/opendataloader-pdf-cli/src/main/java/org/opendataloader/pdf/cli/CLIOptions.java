@@ -120,6 +120,9 @@ public class CLIOptions {
     private static final String IMAGE_DESCRIPTION_TIMEOUT_LONG_OPTION = "image-description-timeout";
     private static final String IMAGE_DESCRIPTION_TIMEOUT_DESC = "Image description request timeout in milliseconds. Default: 30000";
 
+    private static final String IMAGE_DESCRIPTION_INSECURE_LONG_OPTION = "image-description-insecure";
+    private static final String IMAGE_DESCRIPTION_INSECURE_DESC = "Disable TLS certificate verification for image description API requests (use only with trusted servers)";
+
     // ===== Pages =====
     private static final String PAGES_LONG_OPTION = "pages";
     private static final String PAGES_DESC = "Pages to extract (e.g., \"1,3,5-7\"). Default: all pages";
@@ -200,6 +203,8 @@ public class CLIOptions {
                     IMAGE_DESCRIPTION_LANGUAGE_DESC, true),
             new OptionDefinition(IMAGE_DESCRIPTION_TIMEOUT_LONG_OPTION, null, "string", "30000",
                     IMAGE_DESCRIPTION_TIMEOUT_DESC, true),
+            new OptionDefinition(IMAGE_DESCRIPTION_INSECURE_LONG_OPTION, null, "boolean", false,
+                    IMAGE_DESCRIPTION_INSECURE_DESC, true),
             new OptionDefinition(PAGES_LONG_OPTION, null, "string", null, PAGES_DESC, true),
             new OptionDefinition(INCLUDE_HEADER_FOOTER_LONG_OPTION, null, "boolean", false,
                     INCLUDE_HEADER_FOOTER_DESC, true),
@@ -356,6 +361,9 @@ public class CLIOptions {
                                     timeoutValue));
                 }
             }
+        }
+        if (commandLine.hasOption(IMAGE_DESCRIPTION_INSECURE_LONG_OPTION)) {
+            config.setImageDescriptionInsecure(true);
         }
     }
 

@@ -90,6 +90,7 @@ public class Config {
         "Describe what you see in this image. Include any text, numbers, labels, and data values visible.";
     private String imageDescriptionLanguage = "ko";
     private int imageDescriptionTimeoutMs = 30000;
+    private boolean imageDescriptionInsecure = false;
 
     /** Table detection method: default (border-based detection). */
     public static final String TABLE_METHOD_DEFAULT = "default";
@@ -916,6 +917,14 @@ public class Config {
             throw new IllegalArgumentException("Image description timeout must be a positive integer.");
         }
         this.imageDescriptionTimeoutMs = imageDescriptionTimeoutMs;
+    }
+
+    public boolean isImageDescriptionInsecure() {
+        return imageDescriptionInsecure;
+    }
+
+    public void setImageDescriptionInsecure(boolean imageDescriptionInsecure) {
+        this.imageDescriptionInsecure = imageDescriptionInsecure;
     }
 
     public String getImageDescriptionLanguage() {

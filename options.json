@@ -185,6 +185,14 @@
       "description": "Image description request timeout in milliseconds. Default: 30000"
     },
     {
+      "name": "image-description-insecure",
+      "shortName": null,
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Disable TLS certificate verification for image description API requests (use only with trusted servers)"
+    },
+    {
       "name": "pages",
       "shortName": null,
       "type": "string",

@@ -217,6 +217,15 @@ CLI_OPTIONS: List[Dict[str, Any]] = [
         "description": "Image description request timeout in milliseconds. Default: 30000",
     },
     {
+        "name": "image-description-insecure",
+        "python_name": "image_description_insecure",
+        "short_name": None,
+        "type": "boolean",
+        "required": False,
+        "default": False,
+        "description": "Disable TLS certificate verification for image description API requests (use only with trusted servers)",
+    },
+    {
         "name": "pages",
         "python_name": "pages",
         "short_name": None,

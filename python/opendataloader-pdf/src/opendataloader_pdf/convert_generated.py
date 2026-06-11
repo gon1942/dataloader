@@ -34,6 +34,7 @@ def convert(
     image_description_prompt: Optional[str] = None,
     image_description_language: Optional[str] = None,
     image_description_timeout: Optional[str] = None,
+    image_description_insecure: bool = False,
     pages: Optional[str] = None,
     include_header_footer: bool = False,
     detect_strikethrough: bool = False,
@@ -71,6 +72,7 @@ def convert(
         image_description_prompt: Custom prompt for image description
         image_description_language: Language for generated image descriptions. Default: ko
         image_description_timeout: Image description request timeout in milliseconds. Default: 30000
+        image_description_insecure: Disable TLS certificate verification for image description API requests (use only with trusted servers)
         pages: Pages to extract (e.g., "1,3,5-7"). Default: all pages
         include_header_footer: Include page headers and footers in output
         detect_strikethrough: Detect strikethrough text and wrap with ~~ in Markdown output (experimental)
@@ -142,6 +144,8 @@ def convert(
         args.extend(["--image-description-language", image_description_language])
     if image_description_timeout:
         args.extend(["--image-description-timeout", image_description_timeout])
+    if image_description_insecure:
+        args.append("--image-description-insecure")
     if pages:
         args.extend(["--pages", pages])
     if include_header_footer:

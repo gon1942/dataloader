@@ -51,6 +51,8 @@ export interface ConvertOptions {
   imageDescriptionLanguage?: string;
   /** Image description request timeout in milliseconds. Default: 30000 */
   imageDescriptionTimeout?: string;
+  /** Disable TLS certificate verification for image description API requests (use only with trusted servers) */
+  imageDescriptionInsecure?: boolean;
   /** Pages to extract (e.g., "1,3,5-7"). Default: all pages */
   pages?: string;
   /** Include page headers and footers in output */
@@ -96,6 +98,7 @@ export interface CliOptions {
   imageDescriptionPrompt?: string;
   imageDescriptionLanguage?: string;
   imageDescriptionTimeout?: string;
+  imageDescriptionInsecure?: boolean;
   pages?: string;
   includeHeaderFooter?: boolean;
   detectStrikethrough?: boolean;
@@ -180,6 +183,9 @@ export function buildConvertOptions(cliOptions: CliOptions): ConvertOptions {
   }
   if (cliOptions.imageDescriptionTimeout) {
     convertOptions.imageDescriptionTimeout = cliOptions.imageDescriptionTimeout;
+  }
+  if (cliOptions.imageDescriptionInsecure) {
+    convertOptions.imageDescriptionInsecure = true;
   }
   if (cliOptions.pages) {
     convertOptions.pages = cliOptions.pages;
@@ -295,6 +301,9 @@ export function buildArgs(options: ConvertOptions): string[] {
   }
   if (options.imageDescriptionTimeout) {
     args.push('--image-description-timeout', options.imageDescriptionTimeout);
+  }
+  if (options.imageDescriptionInsecure) {
+    args.push('--image-description-insecure');
   }
   if (options.pages) {
     args.push('--pages', options.pages);
